@@ -1,18 +1,21 @@
-/* Shared look for every Muze page: tokens, header bar, buttons, prompt cards, toast. */
+/* Shared look for every Muze page: tokens, header bar, buttons, prompt cards, toast.
+   Colours and fonts follow The Cosmic Kitchen landing page (cream menu on a gingham tablecloth). */
 :root{
-  --bg:#F1ECE4; --surface:#FBF8F3; --ink:#221F1B; --muted:#6B635A; --felt:#E4DCD0; --line:#BDB2A4; --ok:#2C7A4C;
-  --f0:#C0442F; --f1:#2C4B88; --f2:#D69720; --f3:#4D8257;
+  --bg:#E9DCC3; --surface:#FBF6EC; --ink:#2B211B; --muted:#7A6A5D; --felt:#F1E5CF; --line:#D9C9AD; --ok:#3B8F55;
+  --f0:#C8462E; --f1:#5B5CE2; --f2:#B8841F; --f3:#3B8F55;
   --paper:#FAF6EC; --paper-ink:#2A2620; --paper-edge:#E2D9C6;
-  --display:"Fredoka",ui-rounded,"Segoe UI",system-ui,sans-serif; --body:"Atkinson Hyperlegible",system-ui,sans-serif;
+  --display:"Fraunces",Georgia,serif; --body:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
   --serif:"Libre Caslon Text",Georgia,"Times New Roman",serif;
   color-scheme:light}
 @media (prefers-color-scheme:dark){:root{
-  --bg:#16130F; --surface:#201C17; --ink:#EDE6DB; --muted:#A79D90; --felt:#2E2821; --line:#4A4238; --ok:#62C38A;
-  --f0:#DA5B44; --f1:#5F82D2; --f2:#E7AE3A; --f3:#66A271;
+  --bg:#15121C; --surface:#221D2A; --ink:#F5ECDF; --muted:#B3A597; --felt:#2E2838; --line:#3B3345; --ok:#5FBF7C;
+  --f0:#EF7A5A; --f1:#8C8DF2; --f2:#E0AA3E; --f3:#5FBF7C;
   --paper:#E9E2D2; --paper-ink:#221F1B; --paper-edge:#C9BFA9; color-scheme:dark}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+body{margin:0;color:var(--ink);font:15px/1.5 var(--body);background-color:var(--bg);
+  background-image:linear-gradient(90deg,color-mix(in srgb,var(--f0) 9%,transparent) 50%,transparent 50%),linear-gradient(color-mix(in srgb,var(--f0) 9%,transparent) 50%,transparent 50%);
+  background-size:44px 44px}
 .wrap{max-width:760px;margin:0 auto;padding-block:max(18px,env(safe-area-inset-top,0px)) 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
 a{color:var(--f1)}
 .bar{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;color:var(--muted)}

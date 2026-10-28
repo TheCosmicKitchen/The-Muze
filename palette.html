@@ -6,7 +6,7 @@
 <title>Palette Walk · The Muze</title>
 <meta name="description" content="Five colours: name each one, then give it a line.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,400&family=Nunito:wght@400;600;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
 <link rel="stylesheet" href="muze.css">
 <style>
 /* Layout: prompt, one row per colour (swatch, name, line), then actions. */
@@ -83,12 +83,12 @@ document.getElementById('save').onclick = async () => {
   if (!complete()) return Muze.toast('Finish all five first');
   await document.fonts.ready;
   Muze.download(Muze.card({ width: 1000, blocks: [
-    { text: walk, font: '600 40px Fredoka, sans-serif' },
+    { text: walk, font: '700 40px Nunito, sans-serif' },
     ...pal.flatMap((c, i) => [
-      { text: st.names[i].trim(), font: '600 26px Fredoka, sans-serif', align: 'left', indent: 66, swatch: c, lh: 34, gap: i ? 26 : 34 },
+      { text: st.names[i].trim(), font: '700 26px Nunito, sans-serif', align: 'left', indent: 66, swatch: c, lh: 34, gap: i ? 26 : 34 },
       { text: st.lines[i].trim(), font: '24px "Libre Caslon Text", Georgia, serif', align: 'left', indent: 66, lh: 34 },
     ]),
-    { text: Muze.tag.toUpperCase(), font: '600 18px Fredoka, sans-serif', color: '#7B7264', gap: 40 },
+    { text: Muze.tag.toUpperCase(), font: '700 18px Nunito, sans-serif', color: '#7B7264', gap: 40 },
   ] }), 'palette-walk');
 };
 render();

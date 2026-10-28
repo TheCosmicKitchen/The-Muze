@@ -6,7 +6,7 @@
 <title>Collage · The Muze</title>
 <meta name="description" content="Cut pieces out of three public-domain artworks and collage them into something new.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,400&family=Nunito:wght@400;600;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
 <link rel="stylesheet" href="muze.css">
 <style>
 /* Layout: prompt; the three source artworks (pick one, draw around a piece to cut it); the collage board with piece controls. */
@@ -242,9 +242,9 @@ document.getElementById('save').onclick = async () => {
     g.shadowColor = 'rgba(0,0,0,.35)'; g.shadowBlur = 8; g.shadowOffsetY = 3;
     g.drawImage(src, -w / 2, -h / 2, w, h); g.restore();
   }
-  g.fillStyle = '#F1ECE4'; g.fillRect(0, H, W, foot);
-  g.fillStyle = '#6B635A'; g.textAlign = 'center';
-  g.font = '600 24px Fredoka, sans-serif'; g.fillText(`${theme} · ${Muze.tag}`, W / 2, H + 42);
+  g.fillStyle = '#FBF6EC'; g.fillRect(0, H, W, foot);
+  g.fillStyle = '#7A6A5D'; g.textAlign = 'center';
+  g.font = '700 24px Nunito, sans-serif'; g.fillText(`${theme} · ${Muze.tag}`, W / 2, H + 42);
   const used = [...new Set(st.pieces.map(pc => pc.a))].map(a => `${works[a].t} (${works[a].a})`).join(' · ');
   g.font = 'italic 18px "Libre Caslon Text", Georgia, serif';
   g.fillText(`Cut from ${used}`.slice(0, 140), W / 2, H + 78);

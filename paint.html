@@ -6,7 +6,7 @@
 <title>Daub · The Muze</title>
 <meta name="description" content="A daily painting prompt with a five-colour palette.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,400&family=Nunito:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="muze.css">
 <style>
 /* Layout: prompt, canvas, then palette + brush row and actions. */
@@ -197,9 +197,9 @@ document.getElementById('save').onclick = async () => {
   const c = document.createElement('canvas'), foot = 70;
   c.width = cv.width; c.height = cv.height + foot;
   const x = c.getContext('2d');
-  x.fillStyle = '#F1ECE4'; x.fillRect(0, 0, c.width, c.height);
+  x.fillStyle = '#FBF6EC'; x.fillRect(0, 0, c.width, c.height);
   x.drawImage(cv, 0, 0);
-  x.fillStyle = '#6B635A'; x.font = '600 26px Fredoka, sans-serif'; x.textAlign = 'center';
+  x.fillStyle = '#7A6A5D'; x.font = '700 26px Nunito, sans-serif'; x.textAlign = 'center';
   x.fillText(`“${prompt}” · ${Muze.tag}`, c.width / 2, cv.height + 45);
   Muze.download(c, 'daub');
 };

@@ -6,7 +6,7 @@
 <title>Haiku Hunt · The Muze</title>
 <meta name="description" content="Find a 5-7-5 haiku hidden in a page from a classic novel.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,400&family=Nunito:wght@400;600;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
 <link rel="stylesheet" href="muze.css">
 <style>
 /* Layout: prompt, the three haiku lines being built (sticky), then the book page to hunt through. */
@@ -128,7 +128,7 @@ document.getElementById('save').onclick = async () => {
   Muze.download(Muze.card({ blocks: [
     { text: text(), font: 'italic 44px "Libre Caslon Text", Georgia, serif', lh: 66 },
     { text: `found in ${book.t}, ${book.a}`, font: 'italic 22px "Libre Caslon Text", Georgia, serif', color: '#7B7264', gap: 40 },
-    { text: Muze.tag.toUpperCase(), font: '600 18px Fredoka, sans-serif', color: '#7B7264', gap: 14 },
+    { text: Muze.tag.toUpperCase(), font: '700 18px Nunito, sans-serif', color: '#7B7264', gap: 14 },
   ] }), 'haiku');
 };
 render();

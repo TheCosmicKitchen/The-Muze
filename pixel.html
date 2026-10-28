@@ -6,7 +6,7 @@
 <title>Pixel Postcard · The Muze</title>
 <meta name="description" content="A 16 by 16 pixel drawing of today's subject in four colours.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,400&family=Nunito:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="muze.css">
 <style>
 /* Layout: prompt, colour row, the 16x16 grid inside a postcard frame, actions. */
@@ -106,7 +106,7 @@ document.getElementById('save').onclick = async () => {
   }
   x.fillStyle = PAPER; x.fillRect(16, 16, c.width - 32, c.height - 32);
   st.px.forEach((p, i) => { x.fillStyle = p < 0 ? PAPER : pal[p]; x.fillRect(M + i % N * S, M + Math.floor(i / N) * S, S, S); });
-  x.fillStyle = '#6B635A'; x.font = '600 24px Fredoka, sans-serif'; x.textAlign = 'center';
+  x.fillStyle = '#7A6A5D'; x.font = '700 24px Nunito, sans-serif'; x.textAlign = 'center';
   x.fillText(`${subject} · ${Muze.tag}`, c.width / 2, N * S + M + 44);
   Muze.download(c, 'pixel-postcard');
 };

@@ -6,7 +6,7 @@
 <title>Cut-up · The Muze</title>
 <meta name="description" content="Make a new poem from strips cut out of old ones.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,400&family=Nunito:wght@400;600;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
 <link rel="stylesheet" href="muze.css">
 <style>
 /* Layout: prompt, your poem (strips you've pasted down), then the scrap pile of loose strips. */
@@ -121,7 +121,7 @@ document.getElementById('save').onclick = async () => {
   Muze.download(Muze.card({ blocks: [
     { text: text(), font: '34px "Libre Caslon Text", Georgia, serif', lh: 52, align: 'left' },
     { text: `cut up from ${poets().join(', ')}`, font: 'italic 22px "Libre Caslon Text", Georgia, serif', color: '#7B7264', gap: 40 },
-    { text: Muze.tag.toUpperCase(), font: '600 18px Fredoka, sans-serif', color: '#7B7264', gap: 14 },
+    { text: Muze.tag.toUpperCase(), font: '700 18px Nunito, sans-serif', color: '#7B7264', gap: 14 },
   ] }), 'cut-up');
 };
 render();

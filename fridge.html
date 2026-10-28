@@ -6,7 +6,7 @@
 <title>Fridge · The Muze</title>
 <meta name="description" content="Daily fridge-magnet poetry: a fresh handful of word magnets every day.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,400&family=Nunito:wght@400;600;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
 <link rel="stylesheet" href="muze.css">
 <style>
 /* Layout: prompt, the fridge door (drag magnets up into the open space), tools, poem read out by rows. */
@@ -227,7 +227,7 @@ document.getElementById('save').onclick = async () => {
     g.fillText(m.textContent, 0, 1);
     g.restore();
   });
-  g.fillStyle = 'rgba(0,0,0,.4)'; g.font = '600 12px Fredoka, sans-serif'; g.textAlign = 'center';
+  g.fillStyle = 'rgba(0,0,0,.4)'; g.font = '700 12px Nunito, sans-serif'; g.textAlign = 'center';
   g.fillText(`${Muze.tag} · Fridge`, D.width / 2, H - 14);
   Muze.download(c, 'fridge');
 };

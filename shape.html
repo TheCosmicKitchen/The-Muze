@@ -6,7 +6,7 @@
 <title>Shape Seed · The Muze</title>
 <meta name="description" content="A random squiggle every day. Turn it into something.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,400&family=Nunito:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="muze.css">
 </head>
 <body>
@@ -99,9 +99,9 @@ document.getElementById('save').onclick = async () => {
   const c = document.createElement('canvas'), foot = 70;
   c.width = 1200; c.height = 900 + foot;
   const g = c.getContext('2d');
-  g.fillStyle = '#F1ECE4'; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = '#FBF6EC'; g.fillRect(0, 0, c.width, c.height);
   g.drawImage(seedCv, 0, 0); g.drawImage(cv, 0, 0);
-  g.fillStyle = '#6B635A'; g.font = '600 26px Fredoka, sans-serif'; g.textAlign = 'center';
+  g.fillStyle = '#7A6A5D'; g.font = '700 26px Nunito, sans-serif'; g.textAlign = 'center';
   g.fillText(`Shape Seed · ${Muze.tag}`, c.width / 2, 900 + 45);
   Muze.download(c, 'shape-seed');
 };

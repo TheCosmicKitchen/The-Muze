@@ -6,7 +6,7 @@
 <title>Exquisite Corpse · The Muze</title>
 <meta name="description" content="Draw a creature one part a day: head, body, legs. You only see the edge of yesterday's drawing.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,400&family=Nunito:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="muze.css">
 <style>
 /* Layout: prompt, the panel (yesterday's edge at the top, a fold line near the bottom), tools, then the finished creature. */
@@ -87,7 +87,7 @@ function fold() {
   if (part === 2) return;
   bg.save(); bg.setLineDash([14, 10]); bg.strokeStyle = '#B9AE9C'; bg.lineWidth = 3;
   bg.beginPath(); bg.moveTo(0, FOLD); bg.lineTo(W, FOLD); bg.stroke(); bg.restore();
-  bg.fillStyle = '#B9AE9C'; bg.font = '600 20px Fredoka, sans-serif'; bg.fillText('fold', 16, FOLD - 10);
+  bg.fillStyle = '#B9AE9C'; bg.font = '700 20px Nunito, sans-serif'; bg.fillText('fold', 16, FOLD - 10);
 }
 
 const st = Muze.load(GAME) || { img: null, done: false };
