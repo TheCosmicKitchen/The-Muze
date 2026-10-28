@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Collage · The Muze</title>
+<meta name="description" content="Cut pieces out of three public-domain artworks and collage them into something new.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
+<link rel="stylesheet" href="muze.css">
+<style>
+/* Layout: prompt; the three source artworks (pick one, draw around a piece to cut it); the collage board with piece controls. */
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.wrap{max-width:1100px}
+.col{display:flex;flex-direction:column;gap:10px;min-width:0}
+.sect{font:600 12px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.thumb{border:3px solid transparent;border-radius:10px;padding:0;overflow:hidden;cursor:pointer;background:var(--felt);aspect-ratio:1}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb[aria-pressed="true"]{border-color:var(--ink)}
+.src{position:relative;border-radius:8px;overflow:hidden;background:var(--felt);min-height:200px}
+.src img{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none}
+.src canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
+.src .msg{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px;padding:16px;text-align:center}
+.cred{font-size:13px;color:var(--muted)}
+.cred a{color:var(--muted)}
+.board{position:relative;aspect-ratio:4/5;border-radius:6px;overflow:hidden;box-shadow:0 1px 0 var(--paper-edge),0 10px 30px -18px rgba(0,0,0,.45);touch-action:none}
+.board:empty::before{content:"Draw around part of a painting to cut it out. Pieces land here.";position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:rgba(0,0,0,.4);font-size:14px}
+.piece{position:absolute;left:0;top:0;cursor:grab;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35));touch-action:none}
+.piece.sel{filter:drop-shadow(0 0 0 #fff) drop-shadow(0 0 2px #2C4B88) drop-shadow(0 0 2px #2C4B88)}
+.bgs{display:flex;gap:6px}
+.bgs button{width:30px;height:30px;border-radius:50%;border:2px solid var(--surface);box-shadow:0 0 0 2px var(--line);cursor:pointer;padding:0}
+.bgs button[aria-pressed="true"]{box-shadow:0 0 0 3px var(--ink)}
+.ptools .btn{min-height:36px;padding:5px 12px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="prompt" id="prompt"></div>
+  <div class="cols">
+    <div class="col">
+      <div class="sect">Scraps</div>
+      <div class="thumbs" id="thumbs"></div>
+      <div class="src" id="src"><img id="srcImg" alt="" crossorigin="anonymous"><canvas id="lasso" aria-label="Draw around a piece to cut it out"></canvas><div class="msg" id="msg">Loading…</div></div>
+      <div class="cred" id="cred"></div>
+    </div>
+    <div class="col">
+      <div class="tools"><span class="sect">Your collage</span><span class="gap"></span><div class="bgs" id="bgs"></div></div>
+      <div class="board" id="board"></div>
+      <div class="tools ptools" id="ptools">
+        <button class="btn" data-act="rl" aria-label="Rotate left">⟲</button>
+        <button class="btn" data-act="rr" aria-label="Rotate right">⟳</button>
+        <button class="btn" data-act="sm" aria-label="Smaller">−</button>
+        <button class="btn" data-act="bg" aria-label="Bigger">+</button>
+        <button class="btn" data-act="fl">Flip</button>
+        <button class="btn" data-act="up">To front</button>
+        <button class="btn ghost" data-act="rm">Remove</button>
+      </div>
+      <div class="tools">
+        <button class="btn primary" id="done">Done</button>
+        <button class="btn" id="save">Save image</button>
+      </div>
+    </div>
+  </div>
+  <p class="foot">Artworks: Art Institute of Chicago, public domain (CC0) · your collage stays on this device</p>
+</div>
+<script src="data/art.js"></script>
+<script src="muze.js"></script>
+<script>
+Muze.header({ title: 'Collage', another: 'Other scraps' });
+const GAME = 'collage';
+const THEMES = ['Make a creature', 'Make a place you\'d like to visit', 'Make a portrait of someone who doesn\'t exist', 'Make an album cover',
+  'Make a dream you had', 'Make a city', 'Make a still life of impossible things', 'Make a poster for a film that doesn\'t exist',
+  'Make a new constellation', 'Make a garden', 'Make a vehicle', 'Make a party', 'Make the weather', 'Make anything'];
+const r = Muze.rng(Muze.seed + 'collage');
+const works = Muze.shuffle(ART.map((_, i) => i), r).slice(0, 3).map(i => ART[i]);
+const theme = Muze.pick(THEMES, r);
+document.getElementById('prompt').innerHTML =
+  `<span class="k">Today's scraps</span><span class="v">${theme}</span><span class="s">Three artworks to cut up. Draw around a shape to cut it out, then drag it into place.</span>`;
+
+const artSrc = w => `art/${w.i}.jpg`;
+const imgs = works.map(w => new Promise((res, rej) => {
+  const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = rej; im.src = artSrc(w);
+}));
+imgs.forEach(p => p.catch(() => {}));
+
+const st = Muze.load(GAME) || { pieces: [], bg: 0, done: false };
+let cur = 0, sel = -1;
+
+// Sources.
+const thumbs = document.getElementById('thumbs');
+works.forEach((w, i) => {
+  const b = document.createElement('button'); b.className = 'thumb'; b.setAttribute('aria-pressed', i === 0);
+  b.setAttribute('aria-label', `${w.t} by ${w.a}`);
+  b.innerHTML = `<img alt="" src="${artSrc(w)}" loading="lazy">`;
+  b.onclick = () => { cur = i; thumbs.querySelectorAll('.thumb').forEach(x => x.setAttribute('aria-pressed', x === b)); showSource(); };
+  thumbs.append(b);
+});
+const srcImg = document.getElementById('srcImg'), lasso = document.getElementById('lasso'), msg = document.getElementById('msg');
+function showSource() {
+  const w = works[cur];
+  msg.hidden = false; msg.textContent = 'Loading…';
+  srcImg.src = artSrc(w); srcImg.alt = `${w.t} by ${w.a}`;
+  document.getElementById('cred').innerHTML = `<i>${w.t}</i>, ${w.a}${w.d ? `, ${w.d}` : ''} · <a href="https://www.artic.edu/artworks/${w.id}" target="_blank" rel="noopener">Art Institute of Chicago</a>`;
+}
+srcImg.onload = () => { msg.hidden = true; };
+srcImg.onerror = () => { msg.textContent = 'Couldn\'t load this artwork. Check your connection, or try another scrap.'; };
+showSource();
+
+// Lasso: points in the image's natural pixel space.
+const lg = lasso.getContext('2d');
+let path = null;
+const nat = e => {
+  const R = lasso.getBoundingClientRect();
+  return [(e.clientX - R.left) / R.width * srcImg.naturalWidth, (e.clientY - R.top) / R.height * srcImg.naturalHeight];
+};
+lasso.addEventListener('pointerdown', e => {
+  if (!srcImg.complete || !srcImg.naturalWidth || !msg.hidden) return;
+  e.preventDefault(); lasso.setPointerCapture(e.pointerId);
+  lasso.width = srcImg.naturalWidth; lasso.height = srcImg.naturalHeight;
+  path = [nat(e)];
+});
+lasso.addEventListener('pointermove', e => {
+  if (!path) return;
+  path.push(nat(e));
+  lg.clearRect(0, 0, lasso.width, lasso.height);
+  lg.fillStyle = 'rgba(255,255,255,.25)'; lg.strokeStyle = '#fff'; lg.lineWidth = 3; lg.setLineDash([10, 6]);
+  lg.beginPath(); path.forEach((p, i) => i ? lg.lineTo(...p) : lg.moveTo(...p)); lg.closePath(); lg.fill(); lg.stroke();
+});
+lasso.addEventListener('pointerup', () => {
+  if (!path) return;
+  const p = path; path = null; lg.clearRect(0, 0, lasso.width, lasso.height);
+  const xs = p.map(q => q[0]), ys = p.map(q => q[1]);
+  if (p.length < 8 || Math.max(...xs) - Math.min(...xs) < 20 || Math.max(...ys) - Math.min(...ys) < 20) return Muze.toast('Draw all the way around a shape');
+  const step = Math.max(1, Math.floor(p.length / 120));
+  const poly = p.filter((_, i) => i % step === 0).map(([x, y]) => [+(x / srcImg.naturalWidth).toFixed(4), +(y / srcImg.naturalHeight).toFixed(4)]);
+  const z = Math.max(0, ...st.pieces.map(q => q.z)) + 1;
+  st.pieces.push({ a: cur, poly, x: 0.3 + Math.random() * 0.4, y: 0.3 + Math.random() * 0.4, s: 1, r: Math.round((Math.random() - 0.5) * 10), f: 1, z });
+  sel = st.pieces.length - 1; st.done = false;
+  persist(); renderBoard();
+});
+
+// Pieces: cut once per piece into a canvas at the source image's resolution.
+const cache = new Map();
+async function cut(pc) {
+  const key = JSON.stringify([pc.a, pc.poly]);
+  if (cache.has(key)) return cache.get(key);
+  const im = await imgs[pc.a];
+  const pts = pc.poly.map(([u, v]) => [u * im.naturalWidth, v * im.naturalHeight]);
+  const x0 = Math.min(...pts.map(p => p[0])), y0 = Math.min(...pts.map(p => p[1]));
+  const c = document.createElement('canvas');
+  c.width = Math.ceil(Math.max(...pts.map(p => p[0])) - x0); c.height = Math.ceil(Math.max(...pts.map(p => p[1])) - y0);
+  const g = c.getContext('2d');
+  g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x - x0, y - y0) : g.moveTo(x - x0, y - y0)); g.closePath(); g.clip();
+  g.drawImage(im, -x0, -y0);
+  cache.set(key, c); return c;
+}
+
+const BGS = ['#FAF6EC', '#C9A87C', '#1E1B17', '#BFD7EA'];
+const board = document.getElementById('board'), bgsEl = document.getElementById('bgs');
+BGS.forEach((c, i) => {
+  const b = document.createElement('button'); b.style.background = c; b.setAttribute('aria-label', `Background ${i + 1}`);
+  b.onclick = () => { st.bg = i; persist(); renderBoard(); };
+  bgsEl.append(b);
+});
+const k = () => board.clientWidth / 600;   // board pixels per source pixel at scale 1
+function placeEl(el, pc, src) {
+  const w = src.width * k() * pc.s, h = src.height * k() * pc.s;
+  el.style.width = w + 'px'; el.style.height = h + 'px';
+  el.style.transform = `translate(${pc.x * board.clientWidth - w / 2}px,${pc.y * board.clientHeight - h / 2}px) rotate(${pc.r}deg) scaleX(${pc.f})`;
+  el.style.zIndex = pc.z;
+}
+let renderSeq = 0;
+async function renderBoard() {
+  const seq = ++renderSeq;
+  board.style.background = BGS[st.bg];
+  bgsEl.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', i === st.bg));
+  const srcs = await Promise.all(st.pieces.map(pc => cut(pc).catch(() => null)));
+  if (seq !== renderSeq) return;
+  board.innerHTML = '';
+  st.pieces.forEach((pc, i) => {
+    if (!srcs[i]) return;
+    const el = document.createElement('canvas'); el.width = srcs[i].width; el.height = srcs[i].height;
+    el.getContext('2d').drawImage(srcs[i], 0, 0);
+    el.className = 'piece' + (i === sel ? ' sel' : ''); el.dataset.i = i;
+    placeEl(el, pc, srcs[i]); board.append(el);
+  });
+  document.getElementById('ptools').style.visibility = sel >= 0 ? 'visible' : 'hidden';
+  document.getElementById('done').textContent = st.done ? 'Done ✓' : 'Done';
+}
+function persist() { Muze.save(GAME, st); }
+
+let drag = null;
+board.addEventListener('pointerdown', e => {
+  const el = e.target.closest('.piece');
+  if (!el) { if (sel >= 0) { sel = -1; renderBoard(); } return; }
+  e.preventDefault();
+  const i = +el.dataset.i, pc = st.pieces[i], R = board.getBoundingClientRect();
+  if (sel !== i) { sel = i; board.querySelectorAll('.piece').forEach(p => p.classList.toggle('sel', p === el)); document.getElementById('ptools').style.visibility = 'visible'; }
+  drag = { el, pc, src: el, dx: e.clientX - R.left - pc.x * R.width, dy: e.clientY - R.top - pc.y * R.height };
+  el.setPointerCapture(e.pointerId);
+});
+board.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const R = board.getBoundingClientRect();
+  drag.pc.x = Math.max(0, Math.min(1, (e.clientX - R.left - drag.dx) / R.width));
+  drag.pc.y = Math.max(0, Math.min(1, (e.clientY - R.top - drag.dy) / R.height));
+  placeEl(drag.el, drag.pc, drag.el);
+});
+const drop = () => { if (drag) { drag = null; st.done = false; persist(); } };
+board.addEventListener('pointerup', drop); board.addEventListener('pointercancel', drop);
+
+document.getElementById('ptools').addEventListener('click', e => {
+  const act = e.target.closest('[data-act]')?.dataset.act, pc = st.pieces[sel];
+  if (!act || !pc) return;
+  if (act === 'rl') pc.r -= 15; if (act === 'rr') pc.r += 15;
+  if (act === 'sm') pc.s = Math.max(0.2, pc.s / 1.2); if (act === 'bg') pc.s = Math.min(5, pc.s * 1.2);
+  if (act === 'fl') pc.f *= -1;
+  if (act === 'up') pc.z = Math.max(...st.pieces.map(q => q.z)) + 1;
+  if (act === 'rm') { st.pieces.splice(sel, 1); sel = -1; }
+  st.done = false; persist(); renderBoard();
+});
+addEventListener('resize', renderBoard);
+
+document.getElementById('done').onclick = () => {
+  if (!st.pieces.length) return Muze.toast('Cut out a piece first');
+  st.done = true; persist(); renderBoard(); Muze.toast('Pasted down');
+};
+document.getElementById('save').onclick = async () => {
+  if (!st.pieces.length) return Muze.toast('Cut out a piece first');
+  await document.fonts.ready;
+  const W = 1200, H = 1500, foot = 110, kk = W / 600;
+  const c = document.createElement('canvas'); c.width = W; c.height = H + foot;
+  const g = c.getContext('2d');
+  g.fillStyle = BGS[st.bg]; g.fillRect(0, 0, W, H);
+  const order = st.pieces.map((pc, i) => [pc, i]).sort((a, b) => a[0].z - b[0].z);
+  for (const [pc] of order) {
+    const src = await cut(pc).catch(() => null); if (!src) continue;
+    const w = src.width * kk * pc.s, h = src.height * kk * pc.s;
+    g.save(); g.translate(pc.x * W, pc.y * H); g.rotate(pc.r * Math.PI / 180); g.scale(pc.f, 1);
+    g.shadowColor = 'rgba(0,0,0,.35)'; g.shadowBlur = 8; g.shadowOffsetY = 3;
+    g.drawImage(src, -w / 2, -h / 2, w, h); g.restore();
+  }
+  g.fillStyle = '#F1ECE4'; g.fillRect(0, H, W, foot);
+  g.fillStyle = '#6B635A'; g.textAlign = 'center';
+  g.font = '600 24px Fredoka, sans-serif'; g.fillText(`${theme} · ${Muze.tag}`, W / 2, H + 42);
+  const used = [...new Set(st.pieces.map(pc => pc.a))].map(a => `${works[a].t} (${works[a].a})`).join(' · ');
+  g.font = 'italic 18px "Libre Caslon Text", Georgia, serif';
+  g.fillText(`Cut from ${used}`.slice(0, 140), W / 2, H + 78);
+  try { Muze.download(c, 'collage'); } catch (e) { Muze.toast('Could not save the image'); }
+};
+renderBoard();
+</script>
+</body>
+</html>

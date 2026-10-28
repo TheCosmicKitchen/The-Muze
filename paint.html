@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Daub · The Muze</title>
+<meta name="description" content="A daily painting prompt with a five-colour palette.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="muze.css">
+<style>
+/* Layout: prompt, canvas, then palette + brush row and actions. */
+.easel{position:relative;border-radius:10px;overflow:hidden;box-shadow:0 1px 0 var(--paper-edge),0 10px 30px -18px rgba(0,0,0,.45);background:#fff}
+canvas{display:block;width:100%;height:auto;touch-action:none;cursor:crosshair}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:40px;height:40px;border-radius:50%;border:3px solid var(--surface);box-shadow:0 0 0 2px var(--line);cursor:pointer;padding:0}
+.sw[aria-pressed="true"]{box-shadow:0 0 0 3px var(--ink)}
+.sw:focus-visible{outline:2.5px solid var(--f1);outline-offset:3px}
+.sizes{display:flex;gap:4px;background:var(--surface);border-radius:999px;padding:3px}
+.size{width:38px;height:38px;border-radius:50%;border:0;background:none;cursor:pointer;display:grid;place-items:center;color:var(--ink)}
+.size i{display:block;border-radius:50%;background:currentColor}
+.size[aria-pressed="true"]{background:var(--felt)}
+.seg{display:flex;gap:4px;background:var(--surface);border-radius:999px;padding:3px}
+.seg .btn{border:0;min-height:38px;padding:6px 12px;background:none}
+.seg .btn[aria-pressed="true"]{background:var(--felt)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="prompt" id="prompt"></div>
+  <div class="tools">
+    <div class="swatches" id="sw"></div>
+    <span class="gap"></span>
+    <div class="sizes" id="sizes"></div>
+  </div>
+  <div class="easel"><canvas id="cv" width="1200" height="900" aria-label="Painting canvas"></canvas></div>
+  <div class="tools">
+    <div class="seg" role="group" aria-label="Tool">
+      <button class="btn" data-tool="brush" aria-pressed="true">Brush</button>
+      <button class="btn" data-tool="fill" aria-pressed="false">Fill</button>
+    </div>
+    <button class="btn" id="undo">Undo</button>
+    <button class="btn ghost" id="clear">Clear</button>
+    <span class="gap"></span>
+    <button class="btn primary" id="done">Hang it up</button>
+    <button class="btn" id="save">Save image</button>
+  </div>
+  <p class="foot">Tap a swatch, then paint. Fill pours colour into a closed shape · your painting stays on this device</p>
+</div>
+<script src="muze.js"></script>
+<script>
+Muze.header({ title: 'Daub', another: 'Another prompt' });
+const GAME = 'paint';
+
+const PROMPTS = [
+  'A lighthouse that has fallen in love', 'Your breakfast, as a landscape', 'A cat who runs a small shop', 'The view from inside a teapot',
+  'A whale in a swimming pool', 'The last tree on the moon', 'A storm arriving at a picnic', 'A house with too many chimneys',
+  'Someone asleep on a train', 'A garden that only grows at night', 'A robot learning to knit', 'The colour of a Sunday afternoon',
+  'An umbrella shop in the desert', 'A snail on a long journey', 'Your favourite mug', 'A city built on the back of a turtle',
+  'A fox wearing a scarf', 'The sound of rain', 'A door in the middle of a field', 'A lonely planet with one tree',
+  'Three pears on a windowsill', 'A bus stop at the end of the world', 'A dragon who is afraid of mice', 'The inside of a seashell',
+  'Fireworks seen from far away', 'A boat made of paper, sailing', 'A monster under the bed, being polite', 'Your street in a hundred years',
+  'A bird that swallowed a rainbow', 'A tiny town inside a snow globe', 'The moon taking a bath', 'An octopus doing the dishes',
+  'A mountain with a face', 'A shelf of strange potions', 'Your hand holding something precious', 'A field of sunflowers at dusk',
+  'A train crossing a bridge in fog', 'A sandcastle about to meet the tide', 'Something you lost', 'A frog king on a lily pad throne',
+  'A hot-air balloon over a quilt of fields', 'A bowl of soup that is also a lake', 'Two strangers sharing an umbrella', 'A window on a rainy night',
+  'A mushroom forest', 'A whale in the sky', 'A bicycle with wings', 'A cosy room with one lamp on',
+  'An astronaut picking flowers', 'A volcano in a teacup', 'Your shadow doing its own thing', 'A queen made of leaves',
+  'A crowded aquarium', 'A ghost who loves gardening', 'The first day of spring', 'A map of an island nobody has found',
+  'A sleepy dog in a sunbeam', 'A castle made of cake', 'The bottom of the ocean', 'A clock melting in the heat',
+  'A self-portrait as a vegetable', 'An abandoned carousel', 'Bees at work', 'The view from a tent',
+  'A wizard\'s messy desk', 'A rocket made from a tin can', 'A cloud that looks like someone you know', 'A forest after a fire, growing back',
+  'A cactus wearing a hat', 'A night market', 'A bridge between two moons', 'Your favourite place to sit',
+  'An elephant in a library', 'A beach in winter', 'A tree with doors', 'Lanterns floating on a river',
+  'A crow collecting shiny things', 'A painting of a painting', 'Midnight in a bakery', 'The wind, if you could see it',
+];
+const TWISTS = [
+  'Use only the two biggest brushes.', 'Fill the whole canvas before you add any detail.', 'No black outlines.',
+  'Paint it in under five minutes.', 'Use your other hand.', 'Put the subject somewhere unexpected in the frame.',
+  'Start with the background colour you like least.', 'Make it at night.', 'Leave one big empty space.',
+  'Paint it from very far away.', 'Paint it from very close up.', 'Every shape must touch another shape.',
+  'Use one colour for most of it.', 'Make it look like a stamp or a sticker.', 'Paint it upside down, then flip it in your head.',
+];
+
+const r = Muze.rng(Muze.seed + 'paint');
+const prompt = Muze.pick(PROMPTS, r), pal = Muze.pick(Muze.PALETTES, r), twist = Muze.pick(TWISTS, r);
+document.getElementById('prompt').innerHTML =
+  `<span class="k">Paint this</span><span class="v">${prompt}</span><span class="s">Five colours, no mixing. Optional twist: ${twist}</span>`;
+
+const cv = document.getElementById('cv'), g = cv.getContext('2d', { willReadFrequently: true });
+const PAPER = '#FFFDF8';
+const colours = [...pal, PAPER];
+let colour = pal[0], size = 18, tool = 'brush';
+g.fillStyle = PAPER; g.fillRect(0, 0, cv.width, cv.height);
+
+const sw = document.getElementById('sw');
+colours.forEach((c, i) => {
+  const b = document.createElement('button');
+  b.className = 'sw'; b.style.background = c; b.setAttribute('aria-pressed', i === 0);
+  b.setAttribute('aria-label', i === 5 ? 'Paper (eraser)' : `Colour ${i + 1}`);
+  b.onclick = () => { colour = c; sw.querySelectorAll('.sw').forEach(x => x.setAttribute('aria-pressed', x === b)); };
+  sw.append(b);
+});
+const sizesEl = document.getElementById('sizes');
+[6, 18, 42, 96].forEach((s, i) => {
+  const b = document.createElement('button');
+  b.className = 'size'; b.setAttribute('aria-pressed', s === size); b.setAttribute('aria-label', `Brush size ${i + 1}`);
+  b.innerHTML = `<i style="width:${[4, 9, 16, 24][i]}px;height:${[4, 9, 16, 24][i]}px"></i>`;
+  b.onclick = () => { size = s; sizesEl.querySelectorAll('.size').forEach(x => x.setAttribute('aria-pressed', x === b)); };
+  sizesEl.append(b);
+});
+document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => {
+  tool = b.dataset.tool; document.querySelectorAll('[data-tool]').forEach(x => x.setAttribute('aria-pressed', x === b));
+});
+
+// Undo keeps up to 15 snapshots as offscreen canvases.
+const history = [];
+function snapshot() {
+  const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height;
+  c.getContext('2d').drawImage(cv, 0, 0); history.push(c); if (history.length > 15) history.shift();
+}
+document.getElementById('undo').onclick = () => {
+  const c = history.pop(); if (!c) return Muze.toast('Nothing to undo');
+  g.drawImage(c, 0, 0); persist();
+};
+document.getElementById('clear').onclick = () => {
+  if (!confirm('Start over with a blank canvas?')) return;
+  snapshot(); g.fillStyle = PAPER; g.fillRect(0, 0, cv.width, cv.height); persist();
+};
+
+const pt = e => { const R = cv.getBoundingClientRect(); return [(e.clientX - R.left) * cv.width / R.width, (e.clientY - R.top) * cv.height / R.height]; };
+let last = null;
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault(); snapshot();
+  const [x, y] = pt(e);
+  if (tool === 'fill') { flood(Math.floor(x), Math.floor(y), colour); persist(); return; }
+  cv.setPointerCapture(e.pointerId);
+  last = [x, y];
+  g.fillStyle = colour; g.beginPath(); g.arc(x, y, width(e) / 2, 0, Math.PI * 2); g.fill();
+});
+const width = e => e.pointerType === 'pen' && e.pressure ? size * (0.3 + e.pressure * 1.2) : size;
+cv.addEventListener('pointermove', e => {
+  if (!last) return;
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+  g.strokeStyle = colour; g.lineCap = 'round'; g.lineJoin = 'round';
+  for (const ev of evs.length ? evs : [e]) {
+    const [x, y] = pt(ev);
+    g.lineWidth = width(ev); g.beginPath(); g.moveTo(...last); g.lineTo(x, y); g.stroke();
+    last = [x, y];
+  }
+});
+const end = () => { if (last) { last = null; persist(); } };
+cv.addEventListener('pointerup', end);
+cv.addEventListener('pointercancel', end);
+
+// Scanline flood fill with a little tolerance so anti-aliased edges don't leave halos.
+function flood(x0, y0, hex) {
+  const W = cv.width, H = cv.height, img = g.getImageData(0, 0, W, H), d = img.data;
+  const at = (x, y) => (y * W + x) * 4;
+  const i0 = at(x0, y0), t = [d[i0], d[i0 + 1], d[i0 + 2]];
+  const n = parseInt(hex.slice(1), 16), f = [n >> 16, n >> 8 & 255, n & 255];
+  if (Math.abs(t[0] - f[0]) + Math.abs(t[1] - f[1]) + Math.abs(t[2] - f[2]) < 6) return;
+  const same = i => Math.abs(d[i] - t[0]) + Math.abs(d[i + 1] - t[1]) + Math.abs(d[i + 2] - t[2]) < 90;
+  const seen = new Uint8Array(W * H), stack = [[x0, y0]];
+  while (stack.length) {
+    let [x, y] = stack.pop();
+    while (x > 0 && !seen[y * W + x - 1] && same(at(x - 1, y))) x--;
+    let up = false, dn = false;
+    for (; x < W && !seen[y * W + x] && same(at(x, y)); x++) {
+      const i = at(x, y); seen[y * W + x] = 1;
+      d[i] = f[0]; d[i + 1] = f[1]; d[i + 2] = f[2]; d[i + 3] = 255;
+      if (y > 0) { const ok = !seen[(y - 1) * W + x] && same(at(x, y - 1)); if (ok && !up) stack.push([x, y - 1]); up = ok; }
+      if (y < H - 1) { const ok = !seen[(y + 1) * W + x] && same(at(x, y + 1)); if (ok && !dn) stack.push([x, y + 1]); dn = ok; }
+    }
+  }
+  g.putImageData(img, 0, 0);
+}
+
+const st = Muze.load(GAME) || { img: null, done: false };
+let saveT, warned = false;
+function persist() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    st.img = cv.toDataURL('image/png');
+    if (!Muze.save(GAME, st) && !warned) { warned = true; Muze.toast('Too big to keep on this device. Save the image to keep it.'); }
+  }, 500);
+}
+if (st.img) { const im = new Image(); im.onload = () => g.drawImage(im, 0, 0); im.src = st.img; }
+
+const doneBtn = document.getElementById('done');
+const renderDone = () => doneBtn.textContent = st.done ? 'Hung up ✓' : 'Hang it up';
+doneBtn.onclick = () => { st.done = true; persist(); renderDone(); Muze.toast('Hung on the wall'); };
+renderDone();
+
+document.getElementById('save').onclick = async () => {
+  await document.fonts.ready;
+  const c = document.createElement('canvas'), foot = 70;
+  c.width = cv.width; c.height = cv.height + foot;
+  const x = c.getContext('2d');
+  x.fillStyle = '#F1ECE4'; x.fillRect(0, 0, c.width, c.height);
+  x.drawImage(cv, 0, 0);
+  x.fillStyle = '#6B635A'; x.font = '600 26px Fredoka, sans-serif'; x.textAlign = 'center';
+  x.fillText(`“${prompt}” · ${Muze.tag}`, c.width / 2, cv.height + 45);
+  Muze.download(c, 'daub');
+};
+</script>
+</body>
+</html>

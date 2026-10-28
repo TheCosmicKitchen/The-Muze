@@ -1,0 +1,54 @@
+/* Shared look for every Muze page: tokens, header bar, buttons, prompt cards, toast. */
+:root{
+  --bg:#F1ECE4; --surface:#FBF8F3; --ink:#221F1B; --muted:#6B635A; --felt:#E4DCD0; --line:#BDB2A4; --ok:#2C7A4C;
+  --f0:#C0442F; --f1:#2C4B88; --f2:#D69720; --f3:#4D8257;
+  --paper:#FAF6EC; --paper-ink:#2A2620; --paper-edge:#E2D9C6;
+  --display:"Fredoka",ui-rounded,"Segoe UI",system-ui,sans-serif; --body:"Atkinson Hyperlegible",system-ui,sans-serif;
+  --serif:"Libre Caslon Text",Georgia,"Times New Roman",serif;
+  color-scheme:light}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#16130F; --surface:#201C17; --ink:#EDE6DB; --muted:#A79D90; --felt:#2E2821; --line:#4A4238; --ok:#62C38A;
+  --f0:#DA5B44; --f1:#5F82D2; --f2:#E7AE3A; --f3:#66A271;
+  --paper:#E9E2D2; --paper-ink:#221F1B; --paper-edge:#C9BFA9; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+.wrap{max-width:760px;margin:0 auto;padding-block:max(18px,env(safe-area-inset-top,0px)) 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+a{color:var(--f1)}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;color:var(--muted)}
+.bar a{color:var(--muted);text-decoration:none;font:600 15px var(--display)}
+.bar a:hover{color:var(--ink)}
+.bar .when a{font:inherit;text-decoration:underline}
+.titlerow{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+h1{font:600 38px/1 var(--display);margin:0;letter-spacing:-.01em}
+.lede{color:var(--muted);margin:0}
+.prompt{background:var(--surface);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.prompt .k{font:600 12px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.prompt .v{font:600 22px/1.25 var(--display)}
+.prompt .s{color:var(--muted);font-size:14px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tools .gap{flex:1}
+.btn{font:600 15px var(--display);border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 16px;cursor:pointer;min-height:40px}
+.btn:hover{border-color:var(--ink)}
+.btn:focus-visible{outline:2.5px solid var(--f1);outline-offset:2px}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.btn.primary:hover{opacity:.9}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--ink)}
+.btn[aria-pressed="true"]{background:var(--felt);border-color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.out{background:var(--surface);border-radius:16px;padding:14px 16px}
+.out .k{font:600 12px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.out .poem{font:20px/1.45 var(--serif);white-space:pre-wrap;min-height:1.45em}
+.out .poem:empty::before{content:attr(data-empty);color:var(--muted);font:15px var(--body)}
+.easel{position:relative;border-radius:10px;overflow:hidden;box-shadow:0 1px 0 var(--paper-edge),0 10px 30px -18px rgba(0,0,0,.45);background:#FFFDF8}
+.easel canvas{display:block;width:100%;height:auto;cursor:crosshair}
+.easel canvas+canvas{position:absolute;inset:0}
+.inks{display:flex;gap:8px;flex-wrap:wrap}
+.ink{width:36px;height:36px;border-radius:50%;border:3px solid var(--surface);box-shadow:0 0 0 2px var(--line);cursor:pointer;padding:0}
+.ink[aria-pressed="true"]{box-shadow:0 0 0 3px var(--ink)}
+.status{color:var(--muted);font-size:14px}
+.foot{color:var(--muted);font-size:13px;text-align:center;margin-top:6px}
+.toast{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;background:var(--ink);color:var(--bg);font:600 15px var(--display);padding:10px 18px;border-radius:999px;transition:.2s;pointer-events:none;z-index:99}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+@media (max-width:480px){h1{font-size:30px}.prompt .v{font-size:19px}}

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Exquisite Corpse · The Muze</title>
+<meta name="description" content="Draw a creature one part a day: head, body, legs. You only see the edge of yesterday's drawing.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="muze.css">
+<style>
+/* Layout: prompt, the panel (yesterday's edge at the top, a fold line near the bottom), tools, then the finished creature. */
+.creature{background:var(--surface);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px;align-items:center}
+.creature img{max-width:min(100%,420px);border-radius:8px;box-shadow:0 10px 30px -18px rgba(0,0,0,.45)}
+.creature .k{font:600 12px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.dots{display:flex;gap:8px;align-items:center;font:600 13px var(--display);color:var(--muted)}
+.dots span{padding:3px 10px;border-radius:999px;background:var(--felt)}
+.dots span.on{background:var(--ink);color:var(--bg)}
+.dots span.got{background:var(--ok);color:var(--surface)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="prompt" id="prompt"></div>
+  <div class="dots" id="dots"></div>
+  <div class="tools">
+    <div class="inks" id="inks"></div>
+    <span class="gap"></span>
+    <button class="btn" id="size">Thin</button>
+  </div>
+  <div class="easel">
+    <canvas id="base" width="1200" height="700" aria-hidden="true"></canvas>
+    <canvas id="cv" width="1200" height="700" aria-label="Drawing canvas"></canvas>
+  </div>
+  <div class="tools">
+    <button class="btn" id="undo">Undo</button>
+    <button class="btn ghost" id="clear">Clear</button>
+    <span class="gap"></span>
+    <button class="btn primary" id="done">Fold it over</button>
+  </div>
+  <div class="creature" id="creature" hidden></div>
+  <p class="foot">Draw a little past the dashed fold so tomorrow's part has lines to join · your drawings stay on this device</p>
+</div>
+<script src="muze.js"></script>
+<script>
+Muze.header({ title: 'Exquisite Corpse', another: 'Free play panel' });
+const GAME = 'corpse', W = 1200, H = 700, EDGE = 80, FOLD = H - EDGE;
+const PARTS = ['head', 'body', 'legs'];
+const r = Muze.rng(Muze.seed + 'corpse');
+const part = Muze.daily ? (Muze.day - 1) % 3 : Math.floor(r() * 3);
+const isoOf = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const loadPanels = () => { try { return JSON.parse(localStorage.getItem('muze-corpse-panels')) || {}; } catch (e) { return {}; } };
+const panels = loadPanels();
+const prev = Muze.daily && part > 0 && panels[isoOf(-1)]?.part === part - 1 ? panels[isoOf(-1)] : null;
+
+const HINTS = [
+  ['Draw a head', 'Any head: a person, an animal, a teapot with eyes. Let the neck run past the dashed fold.'],
+  ['Draw a body', 'Join the lines coming in at the top. Arms, wings, a coat, a shell. Let the hips run past the fold.'],
+  ['Draw the legs', 'Join the lines at the top. Legs, wheels, roots, tentacles: you decide what it stands on.'],
+];
+document.getElementById('prompt').innerHTML =
+  `<span class="k">Part ${part + 1} of 3</span><span class="v">${HINTS[part][0]}</span><span class="s">${HINTS[part][1]}${part && !prev ? ' (No panel from yesterday, so here are some lines to join.)' : ''}</span>`;
+document.getElementById('dots').innerHTML = PARTS.map((p, i) =>
+  `<span class="${i === part ? 'on' : Muze.daily && i < part && panels[isoOf(i - part)]?.part === i ? 'got' : ''}">${p}</span>`).join('<span style="background:none;padding:0">→</span>');
+
+// Base layer: yesterday's bottom edge (or seeded stubs) at the top, and the fold line near the bottom.
+const base = document.getElementById('base'), bg = base.getContext('2d');
+bg.fillStyle = '#FFFDF8'; bg.fillRect(0, 0, W, H);
+function drawBase(after) {
+  if (part > 0) {
+    bg.fillStyle = '#EFE9DC'; bg.fillRect(0, 0, W, EDGE);
+    if (prev) {
+      const im = new Image();
+      im.onload = () => { bg.drawImage(im, 0, FOLD, W, EDGE, 0, 0, W, EDGE); fold(); after && after(); };
+      im.src = prev.img; return;
+    }
+    bg.strokeStyle = '#1E1B17'; bg.lineWidth = 6; bg.lineCap = 'round';
+    const n = 2 + Math.floor(r() * 3), x0 = 380 + r() * 120, span = 300 + r() * 160;
+    for (let i = 0; i < n; i++) {
+      const x = x0 + span * i / (n - 1);
+      bg.beginPath(); bg.moveTo(x + (r() - 0.5) * 30, 0); bg.quadraticCurveTo(x + (r() - 0.5) * 50, EDGE / 2, x + (r() - 0.5) * 40, EDGE); bg.stroke();
+    }
+  }
+  fold(); after && after();
+}
+function fold() {
+  if (part === 2) return;
+  bg.save(); bg.setLineDash([14, 10]); bg.strokeStyle = '#B9AE9C'; bg.lineWidth = 3;
+  bg.beginPath(); bg.moveTo(0, FOLD); bg.lineTo(W, FOLD); bg.stroke(); bg.restore();
+  bg.fillStyle = '#B9AE9C'; bg.font = '600 20px Fredoka, sans-serif'; bg.fillText('fold', 16, FOLD - 10);
+}
+
+const st = Muze.load(GAME) || { img: null, done: false };
+const cv = document.getElementById('cv');
+const pad = Muze.sketch(cv, { bg: null, onEnd: () => { st.img = pad.toDataURL(); st.done = false; Muze.save(GAME, st); render(); } });
+pad.size = 7;
+if (st.img) pad.load(st.img);
+
+const inksEl = document.getElementById('inks');
+['#1E1B17', '#C0442F', '#2C4B88', 'erase'].forEach((c, i) => {
+  const b = document.createElement('button'); b.className = 'ink';
+  b.style.background = c === 'erase' ? 'repeating-linear-gradient(45deg,#fff 0 5px,#ddd 5px 10px)' : c;
+  b.setAttribute('aria-label', c === 'erase' ? 'Eraser' : `Ink ${i + 1}`); b.setAttribute('aria-pressed', i === 0);
+  b.onclick = () => { pad.erase = c === 'erase'; if (!pad.erase) pad.color = c; inksEl.querySelectorAll('.ink').forEach(x => x.setAttribute('aria-pressed', x === b)); };
+  inksEl.append(b);
+});
+const SIZES = [['Thin', 7], ['Medium', 18], ['Thick', 44]];
+let si = 0;
+document.getElementById('size').onclick = e => { si = (si + 1) % 3; pad.size = SIZES[si][1]; e.target.textContent = SIZES[si][0]; };
+document.getElementById('undo').onclick = () => { if (!pad.undo()) return Muze.toast('Nothing to undo'); st.img = pad.toDataURL(); Muze.save(GAME, st); };
+document.getElementById('clear').onclick = () => { if (!confirm('Clear this panel?')) return; pad.clear(); st.img = null; st.done = false; Muze.save(GAME, st); render(); };
+
+function composite() {
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'); g.drawImage(base, 0, 0); g.drawImage(cv, 0, 0); return c;
+}
+// Stack head, body and legs; each panel's top edge sits over the previous panel's fold strip.
+function creature() {
+  const ids = [isoOf(-2), isoOf(-1)].map((d, i) => panels[d]?.part === i ? panels[d].img : null);
+  if (part !== 2 || ids.includes(null)) return null;
+  return [...ids, composite().toDataURL()];
+}
+async function showCreature(imgs) {
+  const c = document.createElement('canvas'); c.width = W; c.height = H * 3 - EDGE * 2;
+  const g = c.getContext('2d'); g.fillStyle = '#FFFDF8'; g.fillRect(0, 0, c.width, c.height);
+  for (let i = 2; i >= 0; i--) {
+    const im = await new Promise(res => { const m = new Image(); m.onload = () => res(m); m.src = imgs[i]; });
+    // Later panels sit on top except their faint top strip, which the earlier panel already shows.
+    g.drawImage(im, 0, EDGE, W, H - EDGE, 0, i * (H - EDGE) + EDGE, W, H - EDGE);
+    if (i === 0) g.drawImage(im, 0, 0, W, EDGE, 0, 0, W, EDGE);
+  }
+  const el = document.getElementById('creature');
+  el.innerHTML = '<span class="k">Your creature</span>';
+  const img = new Image(); img.src = c.toDataURL(); img.alt = 'Head, body and legs stacked into one creature';
+  const b = document.createElement('button'); b.className = 'btn'; b.textContent = 'Save image';
+  b.onclick = () => Muze.download(c, 'exquisite-corpse');
+  el.append(img, b); el.hidden = false;
+}
+
+function render() {
+  document.getElementById('done').textContent = st.done ? 'Folded ✓' : 'Fold it over';
+  const el = document.getElementById('creature');
+  if (!st.done) { el.hidden = true; return; }
+  const imgs = creature();
+  if (imgs) return showCreature(imgs);
+  el.innerHTML = Muze.daily && part < 2
+    ? `<span class="k">Folded</span><span>Come back tomorrow to draw the ${PARTS[part + 1]}. You'll only see the strip below the fold.</span>`
+    : '<span class="k">Folded</span><span>Draw a head, body and legs on three days in a row to see the whole creature.</span>';
+  el.hidden = false;
+}
+document.getElementById('done').onclick = () => {
+  if (!st.img) return Muze.toast('Draw something first');
+  st.done = true; Muze.save(GAME, st);
+  if (Muze.daily) {
+    const p = loadPanels();
+    p[Muze.today] = { part, img: composite().toDataURL('image/png') };
+    Object.keys(p).sort().slice(0, -4).forEach(k => delete p[k]);
+    try { localStorage.setItem('muze-corpse-panels', JSON.stringify(p)); Object.assign(panels, p); } catch (e) { Muze.toast('Could not keep this panel on this device'); }
+  }
+  render();
+};
+drawBase(render);
+</script>
+</body>
+</html>

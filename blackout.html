@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Blackout · The Muze</title>
+<meta name="description" content="Daily blackout poetry: one page from a public-domain book, a marker, and whatever you leave showing.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
+<link rel="stylesheet" href="muze.css">
+<style>
+/* Layout: prompt, a single book page (tap words to keep them), tools, then the poem read out in order. */
+.paper{background:var(--paper);color:var(--paper-ink);border-radius:6px;padding:28px 26px 22px;box-shadow:0 1px 0 var(--paper-edge),0 10px 30px -18px rgba(0,0,0,.45);position:relative}
+.src{font:italic 13px var(--serif);text-align:center;color:#7B7264;margin-bottom:14px}
+.text{font:17px/2 var(--serif);user-select:none;-webkit-user-select:none;touch-action:pan-y pinch-zoom;hyphens:none}
+.text p{margin:0;text-indent:1.4em}
+.w{cursor:pointer;border-radius:2px;padding-block:.12em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.w b{font-weight:400;border-radius:.6em;transition:box-shadow .12s}
+.w:hover b{box-shadow:0 0 0 2px rgba(0,0,0,.12)}
+.w.k b{box-shadow:0 0 0 2px var(--f0);background:rgba(192,68,47,.10)}
+.paper.inked .w:not(.k){background:#15130F;color:transparent}
+.paper.inked .w.k b{box-shadow:none;background:none}
+.paper.inked .w:hover b{box-shadow:none}
+.paper.inked .text{cursor:default}
+.paper.inked .w{cursor:default}
+.count{color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="prompt" id="prompt"></div>
+  <div class="tools">
+    <button class="btn primary" id="go">Black it out</button>
+    <button class="btn" id="clear">Clear</button>
+    <span class="gap"></span>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="paper" id="paper"><div class="src" id="src"></div><div class="text" id="text"></div></div>
+  <div class="out">
+    <div class="k">Your poem</div>
+    <div class="poem" id="poem" data-empty="Tap words on the page to keep them. Everything else gets blacked out."></div>
+  </div>
+  <div class="tools">
+    <button class="btn" id="copy">Copy poem</button>
+    <button class="btn" id="save">Save image</button>
+  </div>
+  <p class="foot">Pages come from public-domain books on Project Gutenberg · your work stays on this device</p>
+</div>
+<script src="data/pages.js"></script>
+<script src="muze.js"></script>
+<script>
+Muze.header({ title: 'Blackout', another: 'Another page' });
+const GAME = 'blackout';
+
+// Daily pages walk a fixed shuffled order so nobody sees a repeat for over a year.
+const order = Muze.shuffle(PAGES.map((_, i) => i), Muze.rng('muze-blackout-order'));
+const pageIdx = Muze.daily ? order[(Muze.day - 1 + order.length * 100) % order.length] : Math.floor(Muze.rng(Muze.seed)() * PAGES.length);
+const page = PAGES[pageIdx], book = BOOKS[page.b];
+
+const HINTS = [
+  'Find a sentence the author never meant to write.',
+  'Keep fewer than twelve words.',
+  'Make it a question.',
+  'Write a poem about a colour without naming it.',
+  'Let the first and last words be the same.',
+  'Write instructions for something impossible.',
+  'Make it a love letter.',
+  'Keep only words with one syllable.',
+  'Write a warning.',
+  'Tell a whole story in one line.',
+  'Make it sound like a weather forecast.',
+  'Find a title, then a poem that fits it.',
+  'Keep exactly seven words.',
+  'Write what the book is secretly about.',
+  'Make it funny.',
+];
+const hint = Muze.pick(HINTS, Muze.rng(Muze.seed + 'hint'));
+document.getElementById('prompt').innerHTML =
+  `<span class="k">Today's page</span><span class="v">${book.t}</span><span class="s">${book.a} · Optional challenge: ${hint}</span>`;
+document.getElementById('src').textContent = `from ${book.t}, ${book.a}`;
+
+// Words, one span each. The trailing space sits inside the span so the black bar runs on to the next word.
+const textEl = document.getElementById('text');
+const words = [];
+page.t.split('\n').forEach(par => {
+  const p = document.createElement('p');
+  par.split(' ').forEach(tok => {
+    const s = document.createElement('span');
+    s.className = 'w'; s.dataset.i = words.length;
+    const b = document.createElement('b'); b.textContent = tok;
+    s.append(b, ' ');
+    p.append(s); words.push(s);
+  });
+  textEl.append(p);
+});
+
+const st = Muze.load(GAME) || { kept: [], out: false, done: false };
+const paper = document.getElementById('paper');
+st.kept.forEach(i => words[i] && words[i].classList.add('k'));
+
+function poemText() {
+  return words.filter(w => w.classList.contains('k'))
+    .map(w => w.firstChild.textContent.replace(/^[“”"‘’'(\[]+|[“”"‘’'),;:\]]+$/g, ''))
+    .filter(Boolean).join(' ');
+}
+function render() {
+  paper.classList.toggle('inked', st.out);
+  document.getElementById('go').textContent = st.out ? 'Back to the page' : 'Black it out';
+  document.getElementById('clear').disabled = st.out;
+  const n = st.kept.length;
+  document.getElementById('count').textContent = n ? `${n} word${n === 1 ? '' : 's'} kept` : '';
+  document.getElementById('poem').textContent = poemText();
+}
+function persist() {
+  st.kept = words.filter(w => w.classList.contains('k')).map(w => +w.dataset.i);
+  Muze.save(GAME, st); render();
+}
+
+// Tap toggles a word. With a mouse or pen you can also drag across words.
+let painting = null;
+textEl.addEventListener('pointerdown', e => {
+  const w = e.target.closest('.w'); if (!w || st.out) return;
+  painting = !w.classList.contains('k');
+  w.classList.toggle('k', painting);
+  if (e.pointerType === 'touch') painting = null;
+  persist();
+});
+textEl.addEventListener('pointermove', e => {
+  if (painting === null || st.out) return;
+  const w = document.elementFromPoint(e.clientX, e.clientY)?.closest('.w');
+  if (w && w.classList.contains('k') !== painting) { w.classList.toggle('k', painting); persist(); }
+});
+addEventListener('pointerup', () => painting = null);
+
+document.getElementById('go').onclick = () => {
+  if (!st.out && st.kept.length === 0) return Muze.toast('Keep a few words first');
+  st.out = !st.out;
+  if (st.out) { st.done = true; Muze.keep(GAME, poemText()); }
+  Muze.save(GAME, st); render();
+};
+document.getElementById('clear').onclick = () => {
+  if (st.kept.length && !confirm('Clear all kept words?')) return;
+  words.forEach(w => w.classList.remove('k')); persist();
+};
+document.getElementById('copy').onclick = () => {
+  const p = poemText();
+  if (!p) return Muze.toast('Nothing kept yet');
+  Muze.copy(`${p}\n\n(blacked out from ${book.t}, ${book.a})\n${Muze.tag}`);
+};
+
+// Image export: redraw the page onto a canvas from the laid-out word positions.
+document.getElementById('save').onclick = async () => {
+  if (!st.kept.length) return Muze.toast('Keep a few words first');
+  if (!st.out) { st.out = true; st.done = true; Muze.keep(GAME, poemText()); Muze.save(GAME, st); render(); }
+  await document.fonts.ready;
+  const R = paper.getBoundingClientRect(), S = 2, foot = 44;
+  const c = document.createElement('canvas');
+  c.width = R.width * S; c.height = (R.height + foot) * S;
+  const g = c.getContext('2d'); g.scale(S, S);
+  const cs = getComputedStyle(paper);
+  g.fillStyle = cs.backgroundColor; g.fillRect(0, 0, R.width, R.height + foot);
+  const font = getComputedStyle(textEl).font;
+  g.font = font; g.textBaseline = 'alphabetic';
+  const m = g.measureText('Hg'), asc = m.fontBoundingBoxAscent || 14, desc = m.fontBoundingBoxDescent || 4;
+  words.forEach(w => {
+    const kept = w.classList.contains('k');
+    for (const r of w.getClientRects()) {
+      if (!kept) { g.fillStyle = '#15130F'; g.fillRect(r.left - R.left, r.top - R.top, r.width, r.height); }
+    }
+    if (kept) {
+      const b = w.firstChild.getBoundingClientRect();
+      g.fillStyle = cs.color;
+      g.fillText(w.firstChild.textContent, b.left - R.left, b.top - R.top + (b.height - asc - desc) / 2 + asc);
+    }
+  });
+  g.font = getComputedStyle(document.getElementById('src')).font;
+  g.fillStyle = '#7B7264'; g.textAlign = 'center';
+  g.fillText(`from ${book.t}, ${book.a}`, R.width / 2, 34);
+  g.fillText(Muze.tag, R.width / 2, R.height + foot / 2);
+  Muze.download(c, 'blackout');
+};
+
+render();
+</script>
+</body>
+</html>

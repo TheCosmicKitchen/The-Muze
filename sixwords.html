@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Six Words · The Muze</title>
+<meta name="description" content="A whole story in six words, using today's word.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
+<link rel="stylesheet" href="muze.css">
+<style>
+/* Layout: prompt, six word slots filled as you type, then the finished card. */
+.slots{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.slot{height:8px;border-radius:4px;background:var(--felt);transition:background .15s}
+.slot.on{background:var(--ink)}
+.slot.over{background:var(--f0)}
+textarea{width:100%;font:24px/1.4 var(--serif);background:var(--surface);color:var(--ink);border:2px solid var(--line);border-radius:16px;padding:14px 16px;resize:none}
+textarea:focus{outline:none;border-color:var(--ink)}
+.status{color:var(--muted);font-size:14px;min-height:21px}
+.status .bad{color:var(--f0)}
+.status .good{color:var(--ok);font-weight:700}
+.card{background:var(--paper);color:var(--paper-ink);border-radius:6px;padding:40px 28px;text-align:center;box-shadow:0 1px 0 var(--paper-edge),0 10px 30px -18px rgba(0,0,0,.45)}
+.card .story{font:italic 28px/1.35 var(--serif)}
+.card .cap{font:600 12px var(--display);letter-spacing:.1em;text-transform:uppercase;color:#7B7264;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="prompt" id="prompt"></div>
+  <div class="slots" id="slots"></div>
+  <textarea id="tx" rows="2" placeholder="Six words. That's the whole story." aria-label="Your six-word story"></textarea>
+  <div class="status" id="status" aria-live="polite"></div>
+  <div class="tools">
+    <button class="btn primary" id="done" disabled>Finish</button>
+    <span class="gap"></span>
+    <button class="btn" id="copy" hidden>Copy</button>
+    <button class="btn" id="save" hidden>Save image</button>
+  </div>
+  <div class="card" id="card" hidden><div class="story" id="story"></div><div class="cap" id="cap"></div></div>
+  <p class="foot">Hyphenated words count as one · your story stays on this device</p>
+</div>
+<script src="muze.js"></script>
+<script>
+Muze.header({ title: 'Six Words', another: 'Another word' });
+const GAME = 'sixwords';
+
+const WORDS = ('key river ghost umbrella letter moon salt orange ladder bridge island stranger mirror clock garden ' +
+  'bicycle storm candle secret wolf piano suitcase tooth window violin feather anchor lighthouse balloon map ' +
+  'kitchen ticket shadow honey glove crown thread snow ocean coin envelope ribbon lantern spoon whistle ' +
+  'mask apron button compass orchard tunnel echo seed photograph stairs blanket robot parade postcard').split(' ');
+const ANGLES = [
+  'Tell a love story.', 'Tell a ghost story.', 'Write a whole life.', 'Write an apology.', 'Write a mystery.',
+  'Write a happy ending.', 'Write an advert.', 'Write a warning.', 'Tell a story about leaving home.', 'Write a rumour.',
+  'Tell it from an animal\'s point of view.', 'Write a fairy tale.', 'Write a breakup.', 'Write a small victory.',
+  'Write the first line of a much longer story.', 'Write a note left on a fridge.', 'Write a headline from the future.',
+  'Tell a story about a first time.', 'Write a confession.', 'Write something your grandmother might say.',
+];
+const r = Muze.rng(Muze.seed + 'six');
+const word = Muze.pick(WORDS, r), angle = Muze.pick(ANGLES, r);
+document.getElementById('prompt').innerHTML =
+  `<span class="k">Today's word</span><span class="v">${word}</span><span class="s">Use it somewhere in a six-word story. ${angle}</span>`;
+
+const slotsEl = document.getElementById('slots');
+for (let i = 0; i < 6; i++) slotsEl.append(Object.assign(document.createElement('div'), { className: 'slot' }));
+const tx = document.getElementById('tx'), status = document.getElementById('status'), done = document.getElementById('done');
+const st = Muze.load(GAME) || { text: '', done: false };
+tx.value = st.text;
+
+const wordsOf = s => s.trim().split(/\s+/).filter(w => /[\p{L}\p{N}]/u.test(w));
+// Plurals and simple endings count: "keys", "keyed".
+const usesWord = s => wordsOf(s).some(w => w.toLowerCase().replace(/[^\p{L}-]/gu, '').startsWith(word));
+
+function check() {
+  const n = wordsOf(tx.value).length, has = usesWord(tx.value);
+  slotsEl.querySelectorAll('.slot').forEach((s, i) => { s.classList.toggle('on', i < n && n <= 6); s.classList.toggle('over', n > 6); });
+  const ok = n === 6 && has;
+  status.innerHTML = !n ? '' : n > 6 ? `<span class="bad">${n} words, that's ${n - 6} too many</span>`
+    : !has ? `${n} of 6 · <span class="bad">don't forget “${word}”</span>`
+    : n < 6 ? `${n} of 6` : '<span class="good">Six words. Lovely.</span>';
+  done.disabled = !ok;
+  return ok;
+}
+function render() {
+  const fin = st.done && check();
+  document.getElementById('card').hidden = !fin;
+  document.getElementById('copy').hidden = document.getElementById('save').hidden = !fin;
+  done.textContent = fin ? 'Finished ✓' : 'Finish';
+  if (fin) {
+    document.getElementById('story').textContent = tx.value.trim().replace(/\s+/g, ' ');
+    document.getElementById('cap').textContent = `${Muze.tag} · ${word}`;
+  }
+}
+tx.addEventListener('input', () => {
+  st.text = tx.value; if (st.done) st.done = false;
+  Muze.save(GAME, st); check(); render();
+});
+tx.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (!done.disabled) done.click(); } });
+done.onclick = () => {
+  if (!check()) return;
+  st.done = true; Muze.save(GAME, st); Muze.keep(GAME, tx.value.trim()); render();
+};
+document.getElementById('copy').onclick = () => Muze.copy(`${tx.value.trim()}\n\n${Muze.tag} · Six Words · “${word}”`);
+document.getElementById('save').onclick = async () => {
+  await document.fonts.ready;
+  const el = document.getElementById('card'), R = el.getBoundingClientRect(), S = 2;
+  const c = document.createElement('canvas'); c.width = R.width * S; c.height = R.height * S;
+  const g = c.getContext('2d'); g.scale(S, S);
+  const cs = getComputedStyle(el);
+  g.fillStyle = cs.backgroundColor; g.fillRect(0, 0, R.width, R.height);
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  for (const id of ['story', 'cap']) {
+    const n = document.getElementById(id), ns = getComputedStyle(n), lh = parseFloat(ns.lineHeight) || 20;
+    g.font = ns.font; g.fillStyle = ns.color;
+    // Rewrap to the same width the page used.
+    const maxW = n.getBoundingClientRect().width, lines = [];
+    let line = '';
+    n.textContent.split(' ').forEach(w => {
+      const t = line ? line + ' ' + w : w;
+      if (g.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t;
+    });
+    lines.push(line);
+    const top = n.getBoundingClientRect().top - R.top;
+    lines.forEach((l, i) => g.fillText(l, R.width / 2, top + i * lh + (lh - parseFloat(ns.fontSize)) / 2));
+  }
+  Muze.download(c, 'six-words');
+};
+check(); render();
+</script>
+</body>
+</html>

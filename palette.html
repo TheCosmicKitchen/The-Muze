@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Palette Walk · The Muze</title>
+<meta name="description" content="Five colours: name each one, then give it a line.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
+<link rel="stylesheet" href="muze.css">
+<style>
+/* Layout: prompt, one row per colour (swatch, name, line), then actions. */
+.walk{display:flex;flex-direction:column;gap:10px}
+.step{display:grid;grid-template-columns:64px 1fr;gap:14px;background:var(--surface);border-radius:16px;padding:12px}
+.chip{width:64px;height:64px;border-radius:14px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.fields{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fields input,.fields textarea{width:100%;border:0;border-bottom:2px solid var(--line);background:none;color:var(--ink);padding:4px 2px;resize:none}
+.fields input{font:600 18px var(--display)}
+.fields textarea{font:17px/1.4 var(--serif)}
+.fields input:focus,.fields textarea:focus{outline:none;border-color:var(--ink)}
+.fields ::placeholder{color:var(--muted);opacity:.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="prompt" id="prompt"></div>
+  <div class="walk" id="walk"></div>
+  <div class="tools">
+    <button class="btn primary" id="done">Finish</button>
+    <button class="btn" id="copy">Copy</button>
+    <button class="btn" id="save">Save image</button>
+  </div>
+  <p class="foot">Your words stay on this device</p>
+</div>
+<script src="muze.js"></script>
+<script>
+Muze.header({ title: 'Palette Walk', another: 'Another palette' });
+const GAME = 'palette';
+const WALKS = [
+  ['A walk through a city', 'Each colour is a street. What happens there?'],
+  ['One summer', 'Each colour is a day you remember.'],
+  ['A stranger\'s Tuesday', 'Each colour is an hour of their day.'],
+  ['A meal', 'Each colour is a course. Who is at the table?'],
+  ['The weather report', 'Each colour is tomorrow\'s forecast somewhere.'],
+  ['A house', 'Each colour is a room. What is left in it?'],
+  ['A life', 'Each colour is a decade.'],
+  ['A map of your heart', 'Each colour is a country on it.'],
+  ['A song', 'Each colour is a verse. Make the last one the chorus.'],
+  ['A journey by train', 'Each colour is a stop on the line.'],
+  ['A garden', 'Each colour is something growing there.'],
+  ['A dream', 'Each colour is a scene. It doesn\'t have to make sense.'],
+];
+const r = Muze.rng(Muze.seed + 'palette');
+const pal = Muze.pick(Muze.PALETTES, r), [walk, how] = Muze.pick(WALKS, r);
+document.getElementById('prompt').innerHTML =
+  `<span class="k">Today's walk</span><span class="v">${walk}</span><span class="s">${how} Give each colour a name of your own, then one line.</span>`;
+
+const st = Muze.load(GAME) || { names: ['', '', '', '', ''], lines: ['', '', '', '', ''], done: false };
+const walkEl = document.getElementById('walk');
+const NAME_HINTS = ['Name it, e.g. "harbour at six"', 'Name it', 'Name it', 'Name it', 'Name it'];
+pal.forEach((c, i) => {
+  const el = document.createElement('div'); el.className = 'step';
+  el.innerHTML = `<div class="chip" style="background:${c}"></div><div class="fields">
+    <input aria-label="Name for colour ${i + 1}" placeholder='${NAME_HINTS[i]}' maxlength="40">
+    <textarea rows="2" aria-label="Line for colour ${i + 1}" placeholder="One line" maxlength="160"></textarea></div>`;
+  const [inp, ta] = el.querySelectorAll('input,textarea');
+  inp.value = st.names[i]; ta.value = st.lines[i];
+  inp.oninput = () => { st.names[i] = inp.value; st.done = false; persist(); };
+  ta.oninput = () => { st.lines[i] = ta.value; st.done = false; persist(); };
+  walkEl.append(el);
+});
+const complete = () => st.names.every(s => s.trim()) && st.lines.every(s => s.trim());
+const text = () => pal.map((_, i) => `${st.names[i].trim()}: ${st.lines[i].trim()}`).join('\n');
+function persist() { Muze.save(GAME, st); render(); }
+function render() { document.getElementById('done').textContent = st.done ? 'Finished ✓' : 'Finish'; }
+
+document.getElementById('done').onclick = () => {
+  if (!complete()) return Muze.toast('Name and write a line for all five');
+  st.done = true; Muze.keep(GAME, text()); persist();
+};
+document.getElementById('copy').onclick = () => Muze.copy(`${walk}\n\n${text()}\n\n${Muze.tag} · Palette Walk`);
+document.getElementById('save').onclick = async () => {
+  if (!complete()) return Muze.toast('Finish all five first');
+  await document.fonts.ready;
+  Muze.download(Muze.card({ width: 1000, blocks: [
+    { text: walk, font: '600 40px Fredoka, sans-serif' },
+    ...pal.flatMap((c, i) => [
+      { text: st.names[i].trim(), font: '600 26px Fredoka, sans-serif', align: 'left', indent: 66, swatch: c, lh: 34, gap: i ? 26 : 34 },
+      { text: st.lines[i].trim(), font: '24px "Libre Caslon Text", Georgia, serif', align: 'left', indent: 66, lh: 34 },
+    ]),
+    { text: Muze.tag.toUpperCase(), font: '600 18px Fredoka, sans-serif', color: '#7B7264', gap: 40 },
+  ] }), 'palette-walk');
+};
+render();
+</script>
+</body>
+</html>

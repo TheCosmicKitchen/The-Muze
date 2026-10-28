@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Shape Seed · The Muze</title>
+<meta name="description" content="A random squiggle every day. Turn it into something.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="muze.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="prompt" id="prompt"></div>
+  <div class="tools">
+    <div class="inks" id="inks"></div>
+    <span class="gap"></span>
+    <button class="btn" id="size" aria-label="Brush size">Thin</button>
+  </div>
+  <div class="easel">
+    <canvas id="seed" width="1200" height="900" aria-hidden="true"></canvas>
+    <canvas id="cv" width="1200" height="900" aria-label="Drawing canvas"></canvas>
+  </div>
+  <div class="tools">
+    <button class="btn" id="undo">Undo</button>
+    <button class="btn ghost" id="clear">Clear</button>
+    <span class="gap"></span>
+    <button class="btn primary" id="done">Done</button>
+    <button class="btn" id="save">Save image</button>
+  </div>
+  <p class="foot">The red squiggle can't be erased. Use it however you like · your drawing stays on this device</p>
+</div>
+<script src="muze.js"></script>
+<script>
+Muze.header({ title: 'Shape Seed', another: 'Another squiggle' });
+const GAME = 'shape';
+const NUDGES = ['Make it an animal.', 'Make it a face.', 'Make it something you could eat.', 'Make it a building.',
+  'Make it a creature nobody has seen.', 'Make it a vehicle.', 'Make it part of a landscape.', 'Make it something in your kitchen.',
+  'Make it a character in a hat.', 'Make it something flying.', 'Make it a plant.', 'Use it twice, or not at all.'];
+const r = Muze.rng(Muze.seed + 'shape');
+const nudge = Muze.pick(NUDGES, r);
+document.getElementById('prompt').innerHTML =
+  `<span class="k">Today's seed</span><span class="v">Turn the squiggle into something</span><span class="s">Optional nudge: ${nudge}</span>`;
+
+// The seed: a smooth closed blob or an open wiggle through random points (Catmull-Rom curve).
+const seedCv = document.getElementById('seed'), sg = seedCv.getContext('2d');
+sg.fillStyle = '#FFFDF8'; sg.fillRect(0, 0, 1200, 900);
+const closed = r() < 0.5, cx = 420 + r() * 360, cy = 330 + r() * 240, size = 140 + r() * 120;
+let pts = [];
+if (closed) {
+  const n = 5 + Math.floor(r() * 4);
+  for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, d = size * (0.45 + r() * 0.8); pts.push([cx + Math.cos(a) * d, cy + Math.sin(a) * d]); }
+} else {
+  const n = 4 + Math.floor(r() * 3);
+  let a = r() * Math.PI * 2, x = cx - Math.cos(a) * size, y = cy - Math.sin(a) * size;
+  for (let i = 0; i < n; i++) { pts.push([x, y]); a += (r() - 0.5) * 2.4; x += Math.cos(a) * size * 0.7; y += Math.sin(a) * size * 0.7; }
+  pts = pts.map(([x, y]) => [Math.max(120, Math.min(1080, x)), Math.max(120, Math.min(780, y))]);
+}
+sg.strokeStyle = '#C0442F'; sg.lineWidth = 10; sg.lineCap = sg.lineJoin = 'round';
+sg.beginPath();
+const P = i => closed ? pts[(i + pts.length) % pts.length] : pts[Math.max(0, Math.min(pts.length - 1, i))];
+sg.moveTo(...P(0));
+for (let i = 0; i < (closed ? pts.length : pts.length - 1); i++) {
+  const [p0, p1, p2, p3] = [P(i - 1), P(i), P(i + 1), P(i + 2)];
+  sg.bezierCurveTo(p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6, p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6, ...p2);
+}
+sg.stroke();
+
+const st = Muze.load(GAME) || { img: null, done: false };
+const cv = document.getElementById('cv');
+const pad = Muze.sketch(cv, { bg: null, onEnd: () => { st.img = pad.toDataURL(); Muze.save(GAME, st); } });
+pad.size = 6;
+if (st.img) pad.load(st.img);
+
+const pal = Muze.pick(Muze.PALETTES, r);
+const inks = ['#1E1B17', pal[0], pal[2], pal[4], 'erase'];
+const inksEl = document.getElementById('inks');
+inks.forEach((c, i) => {
+  const b = document.createElement('button'); b.className = 'ink';
+  b.style.background = c === 'erase' ? 'repeating-linear-gradient(45deg,#fff 0 5px,#ddd 5px 10px)' : c;
+  b.setAttribute('aria-label', c === 'erase' ? 'Eraser' : `Ink ${i + 1}`); b.setAttribute('aria-pressed', i === 0);
+  b.onclick = () => {
+    pad.erase = c === 'erase'; if (!pad.erase) pad.color = c;
+    inksEl.querySelectorAll('.ink').forEach(x => x.setAttribute('aria-pressed', x === b));
+  };
+  inksEl.append(b);
+});
+const SIZES = [['Thin', 6], ['Medium', 16], ['Thick', 40]];
+let si = 0;
+document.getElementById('size').onclick = e => { si = (si + 1) % 3; pad.size = SIZES[si][1]; e.target.textContent = SIZES[si][0]; };
+document.getElementById('undo').onclick = () => { if (!pad.undo()) return Muze.toast('Nothing to undo'); st.img = pad.toDataURL(); Muze.save(GAME, st); };
+document.getElementById('clear').onclick = () => { if (!confirm('Clear your drawing? The squiggle stays.')) return; pad.clear(); st.img = null; Muze.save(GAME, st); };
+const doneBtn = document.getElementById('done');
+const renderDone = () => doneBtn.textContent = st.done ? 'Done ✓' : 'Done';
+doneBtn.onclick = () => { if (!st.img) return Muze.toast('Draw something first'); st.done = true; Muze.save(GAME, st); renderDone(); };
+renderDone();
+document.getElementById('save').onclick = async () => {
+  await document.fonts.ready;
+  const c = document.createElement('canvas'), foot = 70;
+  c.width = 1200; c.height = 900 + foot;
+  const g = c.getContext('2d');
+  g.fillStyle = '#F1ECE4'; g.fillRect(0, 0, c.width, c.height);
+  g.drawImage(seedCv, 0, 0); g.drawImage(cv, 0, 0);
+  g.fillStyle = '#6B635A'; g.font = '600 26px Fredoka, sans-serif'; g.textAlign = 'center';
+  g.fillText(`Shape Seed · ${Muze.tag}`, c.width / 2, 900 + 45);
+  Muze.download(c, 'shape-seed');
+};
+</script>
+</body>
+</html>

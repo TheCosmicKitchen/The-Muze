@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fridge · The Muze</title>
+<meta name="description" content="Daily fridge-magnet poetry: a fresh handful of word magnets every day.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
+<link rel="stylesheet" href="muze.css">
+<style>
+/* Layout: prompt, the fridge door (drag magnets up into the open space), tools, poem read out by rows. */
+.door{position:relative;height:min(80vh,620px);min-height:560px;border-radius:22px;overflow:hidden;
+  background:linear-gradient(100deg,#E9EEF0 0%,#F7F9FA 38%,#E2E8EB 62%,#F1F4F5 100%);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.08),inset -14px 0 0 rgba(0,0,0,.035)}
+@media (prefers-color-scheme:dark){.door{background:linear-gradient(100deg,#3A4146 0%,#4A5258 38%,#353C41 62%,#434A50 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),inset -14px 0 0 rgba(0,0,0,.15)}}
+.door::after{content:"";position:absolute;right:16px;top:28%;width:8px;height:120px;border-radius:6px;background:rgba(0,0,0,.12)}
+.tray{position:absolute;left:0;right:0;bottom:0;height:46%;border-top:2px dashed rgba(0,0,0,.12);pointer-events:none}
+.tray span{position:absolute;left:14px;top:6px;font:600 11px var(--display);letter-spacing:.1em;text-transform:uppercase;color:rgba(0,0,0,.35)}
+@media (prefers-color-scheme:dark){.tray{border-color:rgba(255,255,255,.12)}.tray span{color:rgba(255,255,255,.35)}}
+.mag{position:absolute;left:0;top:0;padding:3px 7px 4px;background:#FFFDF8;color:#1E1B17;font:16px/1.2 var(--serif);
+  box-shadow:0 1px 0 rgba(0,0,0,.18),0 3px 6px -2px rgba(0,0,0,.28);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;white-space:nowrap;border-radius:1px}
+.mag.theme{background:#FFF3D6}
+.mag.suf{font-style:italic;color:#6B5E4D;padding-inline:5px}
+@media (max-width:520px){.door{height:740px}.mag{font-size:14px;padding:2px 6px 3px}}
+.mag.drag{cursor:grabbing;box-shadow:0 2px 0 rgba(0,0,0,.15),0 10px 18px -4px rgba(0,0,0,.35);z-index:1000!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="prompt" id="prompt"></div>
+  <div class="door" id="door"><div class="tray"><span>Magnet pile</span></div></div>
+  <div class="out">
+    <div class="k">Your poem</div>
+    <div class="poem" id="poem" data-empty="Drag magnets up out of the pile. Rows read top to bottom, left to right."></div>
+  </div>
+  <div class="tools">
+    <button class="btn primary" id="done">Pin it up</button>
+    <button class="btn" id="copy">Copy poem</button>
+    <button class="btn" id="save">Save image</button>
+    <span class="gap"></span>
+    <button class="btn ghost" id="reset">Sweep back</button>
+  </div>
+  <p class="foot">New magnets at local midnight · your work stays on this device</p>
+</div>
+<script src="muze.js"></script>
+<script>
+Muze.header({ title: 'Fridge', another: 'Another fridge' });
+const GAME = 'fridge';
+
+const GLUE = 'the the a a an of of and and to in on with my your our their his her it I I you you we they is is was are be not no all like as but or if so from for at by this that what when how where then still only again'.split(' ');
+const SUFFIX = ['s', 's', 'ing', 'ed', 'ly', 'er', 'est', 'y'];
+const WORDS = ('moon sun river bone light shadow dream whisper honey storm salt wing heart door window mirror fire ghost song road garden ' +
+  'secret winter summer tongue velvet iron glass smoke milk ocean feather thunder kiss sugar ash rust silver gold blue red green black ' +
+  'soft wild sweet bitter slow quiet loud tiny huge broken golden hollow strange lonely tender electric ancient sleepy hungry naked ' +
+  'run fly fall swim burn melt sing dance forget remember want need hold break kiss bloom shine drown wait whisper wander ache spill ' +
+  'always never tomorrow yesterday forever almost inside under over beyond between through away home morning midnight rain snow ' +
+  'cat dog bird fish bee horse wolf fox crow apple peach lemon bread coffee tea cake knife spoon cup bed chair map clock key ' +
+  'mother father child sister friend stranger king queen sailor thief witch angel monster body skin hair eye hand mouth blood ' +
+  'love lust fear joy grief hope luck time space star cloud wind wave stone leaf root seed flower tree sky sea earth').split(' ');
+const THEMES = {
+  'the kitchen': 'kettle toast butter steam oven crumb pan simmer recipe salt pepper spoon jam crust',
+  'the sea': 'tide harbour gull anchor drift salt kelp lighthouse shell foam current sailor deep wreck',
+  'night': 'lamp owl dark sleep star velvet insomnia hush moth candle dream shadow midnight blanket',
+  'the city': 'neon taxi siren subway tower rooftop crowd traffic pigeon alley concrete window rush corner',
+  'the garden': 'soil worm rose thorn hedge pollen sprout petal bee hose dirt bloom weed shade',
+  'weather': 'drizzle fog gust hail forecast puddle umbrella thunder lightning breeze frost sunburst grey cloudy',
+  'outer space': 'orbit comet planet rocket void astronaut gravity nebula signal crater satellite alien glow dust',
+  'machines': 'gear engine wire spark circuit robot motor hum oil switch battery signal static clockwork',
+  'the forest': 'moss fern pine deer mushroom path bark owl hollow trail stream fog lichen acorn',
+  'music': 'drum chord melody hum echo rhythm piano string choir tune bass beat rest lullaby',
+  'trains': 'platform ticket whistle carriage track station tunnel signal conductor departure arrival steam window journey',
+  'birds': 'feather nest sparrow heron crow egg song beak flock migrate perch wing sky robin',
+  'autumn': 'leaf pumpkin harvest crisp amber smoke sweater apple cider frost ember hollow orchard rake',
+  'ghosts': 'haunt attic sheet chill whisper creak candle grave moan cobweb mirror cold flicker shiver',
+  'cats': 'whisker purr paw nap windowsill pounce tail yarn claw mew sunbeam stretch hiss velvet',
+  'letters': 'stamp envelope ink dear sincerely postcard address seal paper reply yours mailbox wish distance',
+};
+
+const r = Muze.rng(Muze.seed + 'fridge');
+const themeName = Muze.pick(Object.keys(THEMES), r);
+const themeWords = Muze.shuffle(THEMES[themeName].split(' '), r).slice(0, 8);
+const daily = Muze.shuffle([...new Set(WORDS)], r).slice(0, 30);
+const glue = Muze.shuffle(GLUE, r).slice(0, 26);
+const sufs = Muze.shuffle(SUFFIX, r).slice(0, 4);
+const pile = Muze.shuffle([
+  ...glue.map(t => ({ t, k: '' })),
+  ...daily.map(t => ({ t, k: '' })),
+  ...themeWords.map(t => ({ t, k: 'theme' })),
+  ...sufs.map(t => ({ t, k: 'suf' })),
+], r);
+
+document.getElementById('prompt').innerHTML =
+  `<span class="k">Today's fridge</span><span class="v">Theme magnets: ${themeName}</span><span class="s">${pile.length} magnets. The yellow ones are today's theme. Use as many as you like.</span>`;
+
+const door = document.getElementById('door');
+const st = Muze.load(GAME) || { pos: null, done: false };
+const els = pile.map((x, i) => {
+  const m = document.createElement('div');
+  m.className = 'mag ' + x.k; m.textContent = x.t; m.dataset.i = i;
+  door.append(m); return m;
+});
+
+// Positions are stored as fractions of the door so they survive resizes.
+// The pile is loose rows with a little jitter, so every magnet stays readable.
+function scatter() {
+  const rr = Muze.rng(Muze.seed + 'scatter');
+  const W = door.clientWidth, H = door.clientHeight, top = 0.56 * H + 18, bottom = H - 34;
+  const rows = [[]];
+  let x = 12;
+  els.forEach((m, i) => {
+    const w = m.offsetWidth + 6 + rr() * 8;
+    if (x + w > W - 34 && rows[rows.length - 1].length) { rows.push([]); x = 12; }
+    rows[rows.length - 1].push([i, x]); x += w;
+  });
+  const gap = Math.min(34, (bottom - top) / Math.max(1, rows.length - 1));
+  const pos = [];
+  rows.forEach((row, ri) => row.forEach(([i, px]) => {
+    pos[i] = { x: (px + (rr() - 0.5) * 4) / W, y: (top + ri * gap + (rr() - 0.5) * 5) / H, a: (rr() - 0.5) * 7, z: 0, up: false };
+  }));
+  return pos;
+}
+let fresh = !st.pos || st.pos.length !== els.length;
+if (fresh) st.pos = scatter();
+let zTop = Math.max(0, ...st.pos.map(p => p.z));
+
+function place(i) {
+  const p = st.pos[i], m = els[i];
+  const W = door.clientWidth, H = door.clientHeight;
+  const x = Math.min(p.x * W, W - m.offsetWidth - 4), y = Math.min(p.y * H, H - m.offsetHeight - 4);
+  m.style.transform = `translate(${x}px,${y}px) rotate(${p.a}deg)`;
+  m.style.zIndex = p.z;
+}
+function placeAll() { els.forEach((_, i) => place(i)); }
+
+// Rows: magnets out of the pile, grouped by height, read left to right. Suffix tiles glue onto the word before.
+function poemText() {
+  const W = door.clientWidth, H = door.clientHeight;
+  const up = els.map((m, i) => ({ m, i, p: st.pos[i] })).filter(o => o.p.up)
+    .map(o => ({ ...o, x: o.p.x * W, y: o.p.y * H + o.m.offsetHeight / 2, w: o.m.offsetWidth }))
+    .sort((a, b) => a.y - b.y);
+  const rows = [];
+  up.forEach(o => {
+    const row = rows[rows.length - 1];
+    if (row && Math.abs(o.y - row.y) < 16) row.items.push(o); else rows.push({ y: o.y, items: [o] });
+  });
+  return rows.map(row => {
+    row.items.sort((a, b) => a.x - b.x);
+    let line = '', prevEnd = -1e9;
+    row.items.forEach(o => {
+      const suf = o.m.classList.contains('suf');
+      line += (suf && o.x - prevEnd < 14 && line) ? o.m.textContent : (line ? ' ' : '') + o.m.textContent;
+      prevEnd = o.x + o.w;
+    });
+    return line;
+  }).join('\n');
+}
+function render() {
+  document.getElementById('poem').textContent = poemText();
+  document.getElementById('done').textContent = st.done ? 'Pinned ✓' : 'Pin it up';
+}
+
+let drag = null;
+door.addEventListener('pointerdown', e => {
+  const m = e.target.closest('.mag'); if (!m) return;
+  e.preventDefault();
+  const i = +m.dataset.i, R = door.getBoundingClientRect(), p = st.pos[i];
+  drag = { i, m, dx: e.clientX - R.left - p.x * R.width, dy: e.clientY - R.top - p.y * R.height };
+  p.z = ++zTop; m.classList.add('drag'); m.setPointerCapture(e.pointerId); place(i);
+});
+door.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const R = door.getBoundingClientRect(), p = st.pos[drag.i];
+  p.x = Math.max(0, Math.min(1, (e.clientX - R.left - drag.dx) / R.width));
+  p.y = Math.max(0, Math.min(1, (e.clientY - R.top - drag.dy) / R.height));
+  place(drag.i);
+});
+function drop() {
+  if (!drag) return;
+  const p = st.pos[drag.i];
+  p.up = p.y < 0.54 - drag.m.offsetHeight / door.clientHeight;
+  p.a = p.up ? (Math.random() - 0.5) * 3 : p.a;
+  drag.m.classList.remove('drag'); place(drag.i); drag = null;
+  Muze.save(GAME, st); render();
+}
+door.addEventListener('pointerup', drop);
+door.addEventListener('pointercancel', drop);
+addEventListener('resize', placeAll);
+
+document.getElementById('done').onclick = () => {
+  const p = poemText(); if (!p) return Muze.toast('Drag some magnets up first');
+  st.done = true; Muze.keep(GAME, p); Muze.save(GAME, st); render(); Muze.toast('Pinned to the fridge');
+};
+document.getElementById('copy').onclick = () => {
+  const p = poemText(); if (!p) return Muze.toast('Nothing on the door yet');
+  Muze.copy(`${p}\n\n${Muze.tag} · Fridge`);
+};
+document.getElementById('reset').onclick = () => {
+  if (!confirm('Sweep every magnet back into the pile?')) return;
+  st.pos = scatter(); zTop = 0; Muze.save(GAME, st); placeAll(); render();
+};
+
+// Image export: just the poem area of the door, with magnets drawn where they sit.
+document.getElementById('save').onclick = async () => {
+  const p = poemText(); if (!p) return Muze.toast('Nothing on the door yet');
+  await document.fonts.ready;
+  const D = door.getBoundingClientRect(), S = 2;
+  const up = els.filter((_, i) => st.pos[i].up);
+  const boxes = up.map(m => m.getBoundingClientRect());
+  const top = Math.max(0, Math.min(...boxes.map(b => b.top)) - D.top - 30);
+  const bot = Math.min(D.height, Math.max(...boxes.map(b => b.bottom)) - D.top + 30);
+  const H = bot - top + 34;
+  const c = document.createElement('canvas'); c.width = D.width * S; c.height = H * S;
+  const g = c.getContext('2d'); g.scale(S, S);
+  const grad = g.createLinearGradient(0, 0, D.width, 0);
+  grad.addColorStop(0, '#E9EEF0'); grad.addColorStop(.38, '#F7F9FA'); grad.addColorStop(.62, '#E2E8EB'); grad.addColorStop(1, '#F1F4F5');
+  g.fillStyle = grad; g.fillRect(0, 0, D.width, H);
+  up.sort((a, b) => st.pos[a.dataset.i].z - st.pos[b.dataset.i].z).forEach(m => {
+    const pp = st.pos[m.dataset.i], cs = getComputedStyle(m);
+    const w = m.offsetWidth, h = m.offsetHeight;
+    const x = Math.min(pp.x * D.width, D.width - w - 4), y = Math.min(pp.y * D.height, D.height - h - 4) - top;
+    g.save(); g.translate(x + w / 2, y + h / 2); g.rotate(pp.a * Math.PI / 180);
+    g.shadowColor = 'rgba(0,0,0,.25)'; g.shadowBlur = 5; g.shadowOffsetY = 2;
+    g.fillStyle = cs.backgroundColor; g.fillRect(-w / 2, -h / 2, w, h);
+    g.shadowColor = 'transparent';
+    g.fillStyle = cs.color; g.font = cs.font; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(m.textContent, 0, 1);
+    g.restore();
+  });
+  g.fillStyle = 'rgba(0,0,0,.4)'; g.font = '600 12px Fredoka, sans-serif'; g.textAlign = 'center';
+  g.fillText(`${Muze.tag} · Fridge`, D.width / 2, H - 14);
+  Muze.download(c, 'fridge');
+};
+
+// Widths change once the web font arrives, so lay out an untouched pile again.
+document.fonts.ready.then(() => { if (fresh && !st.pos.some(p => p.up)) st.pos = scatter(); placeAll(); render(); });
+placeAll(); render();
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>One Line · The Muze</title>
+<meta name="description" content="Draw today's subject in one continuous line, without lifting your pen.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="muze.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="prompt" id="prompt"></div>
+  <div class="tools"><span class="status" id="status" aria-live="polite"></span></div>
+  <div class="easel"><canvas id="cv" width="1200" height="900" aria-label="Drawing canvas"></canvas></div>
+  <div class="tools">
+    <button class="btn" id="again">Try again</button>
+    <span class="gap"></span>
+    <button class="btn primary" id="done">Keep this one</button>
+    <button class="btn" id="save">Save image</button>
+  </div>
+  <p class="foot">The line ends when you lift your finger or pen · your drawing stays on this device</p>
+</div>
+<script src="muze.js"></script>
+<script>
+Muze.header({ title: 'One Line', another: 'Another subject' });
+const GAME = 'oneline';
+const subject = Muze.pick(Muze.SUBJECTS, Muze.rng(Muze.seed + 'oneline'));
+document.getElementById('prompt').innerHTML =
+  `<span class="k">Draw this in one line</span><span class="v">${subject[0].toUpperCase() + subject.slice(1)}</span><span class="s">Put your pen down once and don't lift it until you're done. Wobbly is good.</span>`;
+
+const st = Muze.load(GAME) || { img: null, tries: 0, done: false };
+const cv = document.getElementById('cv');
+const pad = Muze.sketch(cv, {
+  onStart: () => !st.img,
+  onEnd: () => { st.img = pad.toDataURL(); st.tries++; Muze.save(GAME, st); render(); },
+});
+pad.size = 7;
+if (st.img) pad.load(st.img);
+
+function render() {
+  document.getElementById('status').textContent = st.img
+    ? `Line drawn${st.tries > 1 ? ` · attempt ${st.tries}` : ''}. Keep it, or try again.`
+    : 'Pen down when you\'re ready.';
+  cv.style.cursor = st.img ? 'default' : 'crosshair';
+  document.getElementById('done').textContent = st.done ? 'Kept ✓' : 'Keep this one';
+}
+document.getElementById('again').onclick = () => { pad.clear(); st.img = null; st.done = false; Muze.save(GAME, st); render(); };
+document.getElementById('done').onclick = () => {
+  if (!st.img) return Muze.toast('Draw your line first');
+  st.done = true; Muze.save(GAME, st); render(); Muze.toast('Kept');
+};
+document.getElementById('save').onclick = async () => {
+  if (!st.img) return Muze.toast('Draw your line first');
+  await document.fonts.ready;
+  const c = document.createElement('canvas'), foot = 70;
+  c.width = cv.width; c.height = cv.height + foot;
+  const g = c.getContext('2d');
+  g.fillStyle = '#FFFDF8'; g.fillRect(0, 0, c.width, c.height); g.drawImage(cv, 0, 0);
+  g.fillStyle = '#6B635A'; g.font = '600 26px Fredoka, sans-serif'; g.textAlign = 'center';
+  g.fillText(`${subject}, in one line · ${Muze.tag}`, c.width / 2, cv.height + 40);
+  Muze.download(c, 'one-line');
+};
+render();
+</script>
+</body>
+</html>

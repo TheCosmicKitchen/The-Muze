@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Haiku Hunt · The Muze</title>
+<meta name="description" content="Find a 5-7-5 haiku hidden in a page from a classic novel.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
+<link rel="stylesheet" href="muze.css">
+<style>
+/* Layout: prompt, the three haiku lines being built (sticky), then the book page to hunt through. */
+.lines{position:sticky;top:0;z-index:5;background:var(--bg);padding-block:8px;display:flex;flex-direction:column;gap:6px}
+.ln{display:grid;grid-template-columns:56px 1fr;gap:10px;align-items:center;background:var(--surface);border-radius:14px;padding:8px 12px;border:2px solid transparent;cursor:pointer;min-height:48px}
+.ln.cur{border-color:var(--ink)}
+.ln .n{font:600 15px var(--display);color:var(--muted)}
+.ln.ok .n{color:var(--ok)}
+.ln.over .n{color:var(--f0)}
+.chips{display:flex;flex-wrap:wrap;gap:4px 6px;font:18px/1.3 var(--serif)}
+.chip{display:inline-flex;align-items:baseline;gap:3px}
+.chip sup{font:600 10px var(--display);color:var(--muted);background:var(--felt);border-radius:6px;padding:1px 4px;cursor:pointer}
+.chips:empty::before{content:"tap words on the page";color:var(--muted);font:14px var(--body)}
+.paper{background:var(--paper);color:var(--paper-ink);border-radius:6px;padding:24px 24px 20px;box-shadow:0 1px 0 var(--paper-edge),0 10px 30px -18px rgba(0,0,0,.45)}
+.src{font:italic 13px var(--serif);text-align:center;color:#7B7264;margin-bottom:12px}
+.text{font:17px/1.95 var(--serif);user-select:none;-webkit-user-select:none}
+.text p{margin:0;text-indent:1.4em}
+.w{cursor:pointer;border-radius:4px;padding:.05em .1em}
+.w:hover{background:rgba(0,0,0,.07)}
+.w.used{background:rgba(214,151,32,.35)}
+.w.past{color:#A39A8C}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="prompt" id="prompt"></div>
+  <div class="lines" id="lines"></div>
+  <div class="tools">
+    <button class="btn primary" id="done" disabled>Finish</button>
+    <button class="btn" id="undo">Undo word</button>
+    <span class="gap"></span>
+    <button class="btn" id="copy" hidden>Copy</button>
+    <button class="btn" id="save" hidden>Save image</button>
+  </div>
+  <div class="paper"><div class="src" id="src"></div><div class="text" id="text"></div></div>
+  <p class="foot">Words must come in the order they appear on the page. The syllable counter guesses: tap a word's number to correct it.</p>
+</div>
+<script src="data/pages.js"></script>
+<script src="muze.js"></script>
+<script>
+Muze.header({ title: 'Haiku Hunt', another: 'Another page' });
+const GAME = 'haiku', TARGET = [5, 7, 5];
+
+// Same shuffled order as Blackout, offset by half a year so the pages differ.
+const order = Muze.shuffle(PAGES.map((_, i) => i), Muze.rng('muze-blackout-order'));
+const pageIdx = Muze.daily ? order[(Muze.day - 1 + 190) % order.length] : Math.floor(Muze.rng(Muze.seed + 'haiku')() * PAGES.length);
+const page = PAGES[pageIdx], book = BOOKS[page.b];
+document.getElementById('prompt').innerHTML =
+  `<span class="k">Hunt through</span><span class="v">${book.t}</span><span class="s">${book.a} · Pick words in reading order to make three lines of 5, 7 and 5 syllables.</span>`;
+document.getElementById('src').textContent = `from ${book.t}, ${book.a}`;
+
+const textEl = document.getElementById('text'), words = [];
+page.t.split('\n').forEach(par => {
+  const p = document.createElement('p');
+  par.split(' ').forEach((tok, k) => {
+    const s = document.createElement('span'); s.className = 'w'; s.dataset.i = words.length; s.textContent = tok;
+    if (k) p.append(' ');
+    p.append(s); words.push(s);
+  });
+  textEl.append(p);
+});
+const clean = w => w.replace(/^[^\p{L}]+|[^\p{L}’']+$/gu, '');
+
+const st = Muze.load(GAME) || { lines: [[], [], []], fix: {}, cur: 0, done: false };
+const syl = i => st.fix[i] ?? Muze.syllables(clean(words[i].textContent));
+const count = l => st.lines[l].reduce((n, i) => n + syl(i), 0);
+const lastPicked = () => Math.max(-1, ...st.lines.flat());
+const text = () => st.lines.map(l => l.map(i => clean(words[i].textContent)).join(' ')).join('\n');
+
+const linesEl = document.getElementById('lines');
+function render() {
+  linesEl.innerHTML = '';
+  st.lines.forEach((l, li) => {
+    const n = count(li), row = document.createElement('div');
+    row.className = 'ln' + (li === st.cur ? ' cur' : '') + (n === TARGET[li] ? ' ok' : n > TARGET[li] ? ' over' : '');
+    row.innerHTML = `<span class="n">${n}/${TARGET[li]}</span><span class="chips"></span>`;
+    const chips = row.querySelector('.chips');
+    l.forEach(i => {
+      const c = document.createElement('span'); c.className = 'chip';
+      c.textContent = clean(words[i].textContent);
+      const sup = document.createElement('sup'); sup.textContent = syl(i); sup.title = 'Tap to correct the syllable count';
+      sup.onclick = e => { e.stopPropagation(); st.fix[i] = syl(i) % 5 + 1; persist(); };
+      c.append(sup); chips.append(c);
+    });
+    row.onclick = () => { st.cur = li; persist(); };
+    linesEl.append(row);
+  });
+  const used = new Set(st.lines.flat()), last = lastPicked();
+  words.forEach((w, i) => { w.classList.toggle('used', used.has(i)); w.classList.toggle('past', i < last && !used.has(i)); });
+  const ok = st.lines.every((_, li) => count(li) === TARGET[li]);
+  const done = document.getElementById('done');
+  done.disabled = !ok; done.textContent = st.done && ok ? 'Finished ✓' : 'Finish';
+  document.getElementById('copy').hidden = document.getElementById('save').hidden = !(st.done && ok);
+}
+function persist() { Muze.save(GAME, st); render(); }
+
+textEl.addEventListener('click', e => {
+  const w = e.target.closest('.w'); if (!w) return;
+  const i = +w.dataset.i;
+  for (const l of st.lines) { const k = l.indexOf(i); if (k >= 0) { l.splice(k, 1); st.done = false; return persist(); } }
+  if (!clean(w.textContent)) return;
+  // Reading order: a line can't use words from before anything picked in an earlier line,
+  // and words within a line stay in order.
+  const before = st.lines.slice(0, st.cur).flat(), after = st.lines.slice(st.cur + 1).flat();
+  if (before.some(j => j > i) || after.some(j => j < i)) return Muze.toast('Keep to reading order');
+  const l = st.lines[st.cur]; l.push(i); l.sort((a, b) => a - b);
+  if (st.cur < 2 && count(st.cur) === TARGET[st.cur]) st.cur++;
+  st.done = false; persist();
+});
+document.getElementById('undo').onclick = () => {
+  let li = st.cur; while (li > 0 && !st.lines[li].length) li--;
+  const l = st.lines[li]; if (!l.length) return;
+  l.pop(); st.cur = li; st.done = false; persist();
+};
+document.getElementById('done').onclick = () => { st.done = true; Muze.keep(GAME, text()); persist(); };
+document.getElementById('copy').onclick = () => Muze.copy(`${text()}\n\n(found in ${book.t}, ${book.a})\n${Muze.tag}`);
+document.getElementById('save').onclick = async () => {
+  await document.fonts.ready;
+  Muze.download(Muze.card({ blocks: [
+    { text: text(), font: 'italic 44px "Libre Caslon Text", Georgia, serif', lh: 66 },
+    { text: `found in ${book.t}, ${book.a}`, font: 'italic 22px "Libre Caslon Text", Georgia, serif', color: '#7B7264', gap: 40 },
+    { text: Muze.tag.toUpperCase(), font: '600 18px Fredoka, sans-serif', color: '#7B7264', gap: 14 },
+  ] }), 'haiku');
+};
+render();
+</script>
+</body>
+</html>

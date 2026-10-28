@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Muze</title>
+<meta name="description" content="Free daily creative prompts: blackout poetry, haiku, cut-ups, fridge magnets, painting, one-line drawing, collage and more.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
+<link rel="stylesheet" href="muze.css">
+<style>
+/* Layout: masthead with today's date, then a stack of make-something cards with daily status. */
+.wrap{max-width:620px;padding-top:max(28px,env(safe-area-inset-top,0px));gap:18px}
+.mast{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font:600 52px/0.95 var(--display);letter-spacing:-.02em}
+h1 .z{display:inline-block}
+h1 .z{color:var(--f0);transform:translateY(-4px) rotate(-8deg)}
+.date{color:var(--muted);font-size:14px}
+.tag{color:var(--muted);margin:0}
+.cards{display:flex;flex-direction:column;gap:12px}
+a.card{display:grid;grid-template-columns:72px 1fr auto;gap:16px;align-items:center;background:var(--surface);border-radius:18px;padding:14px 16px;color:inherit;text-decoration:none;border:2px solid transparent}
+a.card:hover{border-color:var(--line)}
+a.card:focus-visible{outline:2.5px solid var(--f1);outline-offset:2px}
+.card svg{width:72px;height:72px}
+.card h2{font:600 22px var(--display);margin:0}
+.card p{margin:2px 0 0;color:var(--muted);font-size:14px;min-width:0}
+.pill{font:600 12px var(--display);letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:var(--felt);color:var(--muted);white-space:nowrap}
+.pill.done{background:var(--ok);color:var(--surface)}
+.sect h3{font:600 15px var(--display);letter-spacing:.12em;text-transform:uppercase;margin:6px 0 -6px;color:var(--muted)}
+.shelf{display:flex;flex-direction:column;gap:6px}
+.shelf h3{font:600 15px var(--display);letter-spacing:.12em;text-transform:uppercase;margin:6px 0 0;color:var(--muted)}
+.shelf blockquote{margin:0;background:var(--surface);border-radius:14px;padding:10px 14px;font:16px/1.45 var(--serif);white-space:pre-wrap}
+.shelf cite{display:block;font:600 11px var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:4px;font-style:normal}
+footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px}
+@media (max-width:420px){a.card{grid-template-columns:56px 1fr}.card svg{width:56px;height:56px}.pill{grid-column:2;justify-self:start}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="mast">
+    <h1>The Mu<span class="z">z</span>e</h1>
+    <div class="date" id="date"></div>
+  </div>
+  <p class="tag">Something small to make every day, free. No wrong answers, no scores.</p>
+  <div class="sect"><h3>Words</h3></div>
+  <div class="cards">
+    <a class="card" href="blackout.html">
+      <svg viewBox="0 0 72 72" aria-hidden="true">
+        <rect x="10" y="6" width="52" height="60" rx="3" fill="var(--paper)" stroke="var(--line)" stroke-width="1.5"/>
+        <g fill="#15130F"><rect x="16" y="14" width="40" height="6" rx="1"/><rect x="16" y="24" width="14" height="6" rx="1"/><rect x="44" y="24" width="12" height="6" rx="1"/>
+        <rect x="16" y="34" width="26" height="6" rx="1"/><rect x="16" y="44" width="8" height="6" rx="1"/><rect x="38" y="44" width="18" height="6" rx="1"/><rect x="16" y="54" width="40" height="6" rx="1"/></g>
+        <rect x="31" y="23" width="12" height="8" rx="4" fill="none" stroke="var(--f0)" stroke-width="2"/>
+        <rect x="43" y="33" width="14" height="8" rx="4" fill="none" stroke="var(--f0)" stroke-width="2"/>
+        <rect x="24" y="43" width="14" height="8" rx="4" fill="none" stroke="var(--f0)" stroke-width="2"/>
+      </svg>
+      <div><h2>Blackout</h2><p>One page from a classic novel. Keep a few words, black out the rest, find the poem hiding inside.</p></div>
+      <span class="pill" id="s-blackout">Today</span>
+    </a>
+    <a class="card" href="haiku.html">
+      <svg viewBox="0 0 72 72" aria-hidden="true">
+        <rect x="10" y="6" width="52" height="60" rx="3" fill="var(--paper)" stroke="var(--line)" stroke-width="1.5"/>
+        <g fill="var(--line)"><rect x="16" y="14" width="40" height="4" rx="2"/><rect x="16" y="24" width="40" height="4" rx="2"/><rect x="16" y="34" width="40" height="4" rx="2"/><rect x="16" y="44" width="40" height="4" rx="2"/><rect x="16" y="54" width="28" height="4" rx="2"/></g>
+        <g fill="var(--f2)"><rect x="22" y="12" width="12" height="8" rx="2"/><rect x="38" y="32" width="16" height="8" rx="2"/><rect x="16" y="52" width="14" height="8" rx="2"/></g>
+      </svg>
+      <div><h2>Haiku Hunt</h2><p>A 5-7-5 haiku is hiding in a page of a classic novel. Pick its words in reading order.</p></div>
+      <span class="pill" id="s-haiku">Today</span>
+    </a>
+    <a class="card" href="cutup.html">
+      <svg viewBox="0 0 72 72" aria-hidden="true">
+        <g transform="rotate(-6 36 18)"><rect x="8" y="12" width="50" height="12" fill="var(--paper)" stroke="var(--line)"/><rect x="13" y="16" width="34" height="4" rx="2" fill="var(--paper-ink)"/></g>
+        <g transform="rotate(4 36 36)"><rect x="14" y="30" width="50" height="12" fill="var(--paper)" stroke="var(--line)"/><rect x="19" y="34" width="28" height="4" rx="2" fill="var(--paper-ink)"/></g>
+        <g transform="rotate(-2 36 54)"><rect x="6" y="48" width="50" height="12" fill="var(--paper)" stroke="var(--line)"/><rect x="11" y="52" width="38" height="4" rx="2" fill="var(--paper-ink)"/></g>
+      </svg>
+      <div><h2>Cut-up</h2><p>Strips cut from old poems by Dickinson, Keats, Blake and friends. Paste a new poem together.</p></div>
+      <span class="pill" id="s-cutup">Today</span>
+    </a>
+    <a class="card" href="fridge.html">
+      <svg viewBox="0 0 72 72" aria-hidden="true">
+        <rect x="8" y="4" width="56" height="64" rx="8" fill="var(--felt)"/><rect x="54" y="18" width="4" height="20" rx="2" fill="var(--line)"/>
+        <g font-family="'Libre Caslon Text',Georgia,serif" font-size="9" fill="#1E1B17">
+          <g transform="rotate(-4 22 20)"><rect x="13" y="14" width="22" height="12" fill="#FFFDF8"/><text x="24" y="23" text-anchor="middle">moon</text></g>
+          <g transform="rotate(3 38 36)"><rect x="30" y="30" width="16" height="12" fill="#FFF3D6"/><text x="38" y="39" text-anchor="middle">is</text></g>
+          <g transform="rotate(-2 26 52)"><rect x="14" y="46" width="28" height="12" fill="#FFFDF8"/><text x="28" y="55" text-anchor="middle">honey</text></g>
+        </g>
+      </svg>
+      <div><h2>Fridge</h2><p>A fresh pile of word magnets every day, with a theme. Drag them up and make something.</p></div>
+      <span class="pill" id="s-fridge">Today</span>
+    </a>
+    <a class="card" href="sixwords.html">
+      <svg viewBox="0 0 72 72" aria-hidden="true">
+        <rect x="6" y="14" width="60" height="44" rx="4" fill="var(--paper)" stroke="var(--line)" stroke-width="1.5"/>
+        <g fill="var(--paper-ink)"><rect x="12" y="26" width="14" height="5" rx="2.5"/><rect x="29" y="26" width="9" height="5" rx="2.5"/><rect x="41" y="26" width="19" height="5" rx="2.5"/>
+        <rect x="12" y="38" width="18" height="5" rx="2.5"/><rect x="33" y="38" width="7" height="5" rx="2.5"/></g>
+        <rect x="43" y="38" width="17" height="5" rx="2.5" fill="var(--f0)"/>
+      </svg>
+      <div><h2>Six Words</h2><p>A whole story in six words, and one of them has to be today's word.</p></div>
+      <span class="pill" id="s-sixwords">Today</span>
+    </a>
+    <a class="card" href="palette.html">
+      <svg viewBox="0 0 72 72" aria-hidden="true">
+        <rect x="6" y="10" width="20" height="20" rx="5" fill="#E76F51"/><rect x="28" y="10" width="20" height="20" rx="5" fill="#E9C46A"/><rect x="50" y="10" width="16" height="20" rx="5" fill="#2A9D8F"/>
+        <g fill="var(--line)"><rect x="6" y="38" width="50" height="5" rx="2.5"/><rect x="6" y="48" width="40" height="5" rx="2.5"/><rect x="6" y="58" width="56" height="5" rx="2.5"/></g>
+      </svg>
+      <div><h2>Palette Walk</h2><p>Five colours. Give each a name of your own and one line of writing.</p></div>
+      <span class="pill" id="s-palette">Today</span>
+    </a>
+  </div>
+  <div class="sect"><h3>Pictures</h3></div>
+  <div class="cards">
+    <a class="card" href="paint.html">
+      <svg viewBox="0 0 72 72" aria-hidden="true">
+        <path d="M36 6C18 6 6 18 6 34c0 14 10 22 20 22 6 0 7-5 5-9-2-5 2-9 8-8 13 2 27-3 27-15C66 13 52 6 36 6Z" fill="var(--paper)" stroke="var(--line)" stroke-width="1.5"/>
+        <circle cx="22" cy="24" r="6" fill="var(--f0)"/><circle cx="38" cy="16" r="6" fill="var(--f2)"/><circle cx="53" cy="24" r="6" fill="var(--f3)"/><circle cx="18" cy="40" r="6" fill="var(--f1)"/>
+        <path d="M44 66 60 40" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/><path d="M60 40l4-7" stroke="var(--f0)" stroke-width="5" stroke-linecap="round"/>
+      </svg>
+      <div><h2>Daub</h2><p>A painting prompt and a five-colour palette. No mixing, no pressure, just paint.</p></div>
+      <span class="pill" id="s-paint">Today</span>
+    </a>
+    <a class="card" href="oneline.html">
+      <svg viewBox="0 0 72 72" aria-hidden="true">
+        <rect x="4" y="8" width="64" height="56" rx="4" fill="var(--paper)" stroke="var(--line)" stroke-width="1.5"/>
+        <path d="M10 50c8 0 8-22 18-22s6 18 14 18 4-26 12-26 6 30 8 30" fill="none" stroke="var(--paper-ink)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="10" cy="50" r="3" fill="var(--f0)"/>
+      </svg>
+      <div><h2>One Line</h2><p>Draw today's subject without lifting your pen. Wobbly is good.</p></div>
+      <span class="pill" id="s-oneline">Today</span>
+    </a>
+    <a class="card" href="shape.html">
+      <svg viewBox="0 0 72 72" aria-hidden="true">
+        <rect x="4" y="8" width="64" height="56" rx="4" fill="var(--paper)" stroke="var(--line)" stroke-width="1.5"/>
+        <path d="M22 44c-6-10 4-24 16-20s18 4 14 16-24 14-30 4Z" fill="none" stroke="var(--f0)" stroke-width="3.5" stroke-linecap="round"/>
+        <g fill="var(--paper-ink)"><circle cx="32" cy="34" r="2.5"/><circle cx="44" cy="34" r="2.5"/></g>
+        <path d="M33 42q5 4 10 0" fill="none" stroke="var(--paper-ink)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div><h2>Shape Seed</h2><p>A random red squiggle. Turn it into something.</p></div>
+      <span class="pill" id="s-shape">Today</span>
+    </a>
+    <a class="card" href="corpse.html">
+      <svg viewBox="0 0 72 72" aria-hidden="true">
+        <rect x="14" y="4" width="44" height="20" fill="var(--paper)" stroke="var(--line)"/><rect x="14" y="26" width="44" height="20" fill="var(--paper)" stroke="var(--line)"/><rect x="14" y="48" width="44" height="20" fill="var(--felt)" stroke="var(--line)" stroke-dasharray="3 2"/>
+        <circle cx="36" cy="14" r="7" fill="none" stroke="var(--paper-ink)" stroke-width="2"/><path d="M33 21v8M39 21v8M28 30h16l-3 14h-10Z" fill="none" stroke="var(--paper-ink)" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M31 44v8M41 44v8" stroke="var(--f0)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div><h2>Exquisite Corpse</h2><p>Head one day, body the next, legs the day after. You only see the edge of yesterday's drawing.</p></div>
+      <span class="pill" id="s-corpse">Today</span>
+    </a>
+    <a class="card" href="pixel.html">
+      <svg viewBox="0 0 72 72" aria-hidden="true">
+        <rect x="4" y="8" width="64" height="56" rx="3" fill="var(--paper)" stroke="var(--f1)" stroke-width="3" stroke-dasharray="6 4"/>
+        <g fill="var(--f0)"><rect x="24" y="20" width="8" height="8"/><rect x="40" y="20" width="8" height="8"/><rect x="16" y="28" width="40" height="8"/><rect x="24" y="36" width="24" height="8"/><rect x="32" y="44" width="8" height="8"/></g>
+        <rect x="32" y="12" width="8" height="8" fill="var(--f2)"/>
+      </svg>
+      <div><h2>Pixel Postcard</h2><p>Sixteen by sixteen pixels, four colours, one subject.</p></div>
+      <span class="pill" id="s-pixel">Today</span>
+    </a>
+    <a class="card" href="collage.html">
+      <svg viewBox="0 0 72 72" aria-hidden="true">
+        <rect x="4" y="8" width="64" height="56" rx="3" fill="var(--felt)"/>
+        <path d="M10 20l20-6 6 22-22 8Z" fill="var(--f1)"/><path d="M36 30c10-10 26-4 24 10s-18 16-24 4Z" fill="var(--f2)"/><circle cx="28" cy="46" r="10" fill="var(--f3)"/>
+      </svg>
+      <div><h2>Collage</h2><p>Three public-domain artworks to cut up. Draw around a shape, scissor it out, paste it down.</p></div>
+      <span class="pill" id="s-collage">Today</span>
+    </a>
+  </div>
+  <div class="shelf" id="shelf" hidden><h3>Your shelf</h3></div>
+  <footer>New prompts at local midnight · everything you make stays on this device</footer>
+</div>
+<script>
+const t = new Date();
+document.getElementById('date').textContent = t.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+const iso = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+const get = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+const started = {
+  blackout: s => s.kept && s.kept.length, haiku: s => s.lines && s.lines.flat().length, cutup: s => s.rows && s.rows.length,
+  fridge: s => s.pos && s.pos.some(p => p.up), sixwords: s => s.text && s.text.trim(), palette: s => s.names && s.names.some(x => x.trim()),
+  paint: s => !!s.img, oneline: s => !!s.img, shape: s => !!s.img, corpse: s => !!s.img,
+  pixel: s => s.px && s.px.some(p => p >= 0), collage: s => s.pieces && s.pieces.length,
+};
+Object.keys(started).forEach(g => {
+  const s = get('muze-' + g), el = document.getElementById('s-' + g);
+  if (!s || s.seed !== iso) return;
+  if (s.st.done) { el.textContent = 'Made'; el.classList.add('done'); }
+  else if (started[g](s.st)) el.textContent = 'In progress';
+});
+
+// Recent finished text pieces, newest first.
+const NAMES = { blackout: 'Blackout', haiku: 'Haiku Hunt', cutup: 'Cut-up', fridge: 'Fridge', sixwords: 'Six Words', palette: 'Palette Walk' };
+const shelf = get('muze-shelf') || {}, shelfEl = document.getElementById('shelf');
+Object.keys(shelf).sort().reverse().slice(0, 5).forEach(day => {
+  Object.entries(shelf[day]).forEach(([g, text]) => {
+    const q = document.createElement('blockquote');
+    q.textContent = text;
+    const c = document.createElement('cite');
+    c.textContent = `${NAMES[g] || g} · ${new Date(day + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+    q.append(c); shelfEl.append(q); shelfEl.hidden = false;
+  });
+});
+</script>
+</body>
+</html>

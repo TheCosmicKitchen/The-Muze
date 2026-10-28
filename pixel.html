@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pixel Postcard · The Muze</title>
+<meta name="description" content="A 16 by 16 pixel drawing of today's subject in four colours.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="muze.css">
+<style>
+/* Layout: prompt, colour row, the 16x16 grid inside a postcard frame, actions. */
+.card{background:#FFFDF8;border-radius:6px;padding:14px;box-shadow:0 1px 0 var(--paper-edge),0 10px 30px -18px rgba(0,0,0,.45);max-width:520px;width:100%;margin:0 auto;
+  background-image:repeating-linear-gradient(45deg,#C0442F 0 10px,#FFFDF8 10px 20px,#2C4B88 20px 30px,#FFFDF8 30px 40px);}
+.card .in{background:#FFFDF8;padding:12px;border-radius:2px}
+#grid{display:block;width:100%;aspect-ratio:1;touch-action:none;cursor:crosshair}
+.ink.paper{background:#FFFDF8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="prompt" id="prompt"></div>
+  <div class="tools">
+    <div class="inks" id="inks"></div>
+    <span class="gap"></span>
+    <button class="btn" id="gridbtn" aria-pressed="true">Grid</button>
+  </div>
+  <div class="card"><div class="in"><canvas id="grid" width="512" height="512" aria-label="16 by 16 pixel grid"></canvas></div></div>
+  <div class="tools">
+    <button class="btn" id="undo">Undo</button>
+    <button class="btn ghost" id="clear">Clear</button>
+    <span class="gap"></span>
+    <button class="btn primary" id="done">Post it</button>
+    <button class="btn" id="save">Save image</button>
+  </div>
+  <p class="foot">Drag to paint · the white swatch rubs pixels out · your postcard stays on this device</p>
+</div>
+<script src="muze.js"></script>
+<script>
+Muze.header({ title: 'Pixel Postcard', another: 'Another subject' });
+const GAME = 'pixel', N = 16, PX = 32, PAPER = '#FFFDF8';
+const r = Muze.rng(Muze.seed + 'pixel');
+const subject = Muze.pick(Muze.SUBJECTS, r);
+// Four colours, skipping any too pale to show up on the paper.
+const light = c => [1, 3, 5].reduce((n, k) => n + parseInt(c.slice(k, k + 2), 16), 0) > 620;
+const pal = Muze.shuffle(Muze.pick(Muze.PALETTES, r), r).filter(c => !light(c)).concat('#1E1B17').slice(0, 4);
+document.getElementById('prompt').innerHTML =
+  `<span class="k">Wish you were here</span><span class="v">${subject[0].toUpperCase() + subject.slice(1)}</span><span class="s">16 × 16 pixels, four colours. Every pixel counts.</span>`;
+
+const st = Muze.load(GAME) || { px: Array(N * N).fill(-1), done: false };   // -1 = paper, else palette index
+const cv = document.getElementById('grid'), g = cv.getContext('2d');
+let ink = 0, showGrid = true;
+const hist = [];
+
+function draw() {
+  for (let i = 0; i < N * N; i++) { g.fillStyle = st.px[i] < 0 ? PAPER : pal[st.px[i]]; g.fillRect(i % N * PX, Math.floor(i / N) * PX, PX, PX); }
+  if (!showGrid) return;
+  g.strokeStyle = 'rgba(0,0,0,.08)'; g.lineWidth = 1;
+  for (let k = 1; k < N; k++) {
+    g.beginPath(); g.moveTo(k * PX + .5, 0); g.lineTo(k * PX + .5, N * PX); g.moveTo(0, k * PX + .5); g.lineTo(N * PX, k * PX + .5); g.stroke();
+  }
+}
+const inksEl = document.getElementById('inks');
+[...pal, PAPER].forEach((c, i) => {
+  const b = document.createElement('button'); b.className = 'ink' + (c === PAPER ? ' paper' : '');
+  if (c !== PAPER) b.style.background = c;
+  b.setAttribute('aria-label', c === PAPER ? 'Eraser' : `Colour ${i + 1}`); b.setAttribute('aria-pressed', i === 0);
+  b.onclick = () => { ink = c === PAPER ? -1 : i; inksEl.querySelectorAll('.ink').forEach(x => x.setAttribute('aria-pressed', x === b)); };
+  inksEl.append(b);
+});
+
+const cell = e => { const R = cv.getBoundingClientRect(); const x = Math.floor((e.clientX - R.left) / R.width * N), y = Math.floor((e.clientY - R.top) / R.height * N); return x >= 0 && y >= 0 && x < N && y < N ? y * N + x : -1; };
+let painting = false, lastCell = -1;
+cv.addEventListener('pointerdown', e => { e.preventDefault(); painting = true; lastCell = -1; hist.push(st.px.slice()); cv.setPointerCapture(e.pointerId); paint(e); });
+cv.addEventListener('pointermove', e => painting && paint(e));
+const stop = () => { if (painting) { painting = false; st.done = false; Muze.save(GAME, st); render(); } };
+cv.addEventListener('pointerup', stop); cv.addEventListener('pointercancel', stop);
+function paint(e) {
+  for (const ev of (e.getCoalescedEvents && e.getCoalescedEvents().length ? e.getCoalescedEvents() : [e])) {
+    const i = cell(ev); if (i < 0) continue;
+    // Fill the cells between this point and the last one so fast drags leave no gaps.
+    const [x1, y1] = [i % N, Math.floor(i / N)], [x0, y0] = lastCell < 0 ? [x1, y1] : [lastCell % N, Math.floor(lastCell / N)];
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+    for (let t = 0; t <= n; t++) st.px[Math.round(y0 + (y1 - y0) * t / (n || 1)) * N + Math.round(x0 + (x1 - x0) * t / (n || 1))] = ink;
+    lastCell = i;
+  }
+  draw();
+}
+document.getElementById('undo').onclick = () => { const p = hist.pop(); if (!p) return Muze.toast('Nothing to undo'); st.px = p; Muze.save(GAME, st); draw(); };
+document.getElementById('clear').onclick = () => { if (!confirm('Clear every pixel?')) return; hist.push(st.px.slice()); st.px.fill(-1); Muze.save(GAME, st); draw(); };
+document.getElementById('gridbtn').onclick = e => { showGrid = !showGrid; e.target.setAttribute('aria-pressed', showGrid); draw(); };
+function render() { document.getElementById('done').textContent = st.done ? 'Posted ✓' : 'Post it'; }
+document.getElementById('done').onclick = () => {
+  if (st.px.every(p => p < 0)) return Muze.toast('Paint a few pixels first');
+  st.done = true; Muze.save(GAME, st); render(); Muze.toast('Posted');
+};
+document.getElementById('save').onclick = async () => {
+  await document.fonts.ready;
+  const S = 40, M = 40, foot = 64, c = document.createElement('canvas');
+  c.width = N * S + M * 2; c.height = N * S + M * 2 + foot;
+  const x = c.getContext('2d');
+  // Airmail border, then the pixels.
+  for (let k = -c.height; k < c.width; k += 40) {
+    x.fillStyle = (k / 40) % 2 ? '#2C4B88' : '#C0442F';
+    x.beginPath(); x.moveTo(k, 0); x.lineTo(k + 20, 0); x.lineTo(k + 20 + c.height, c.height); x.lineTo(k + c.height, c.height); x.fill();
+  }
+  x.fillStyle = PAPER; x.fillRect(16, 16, c.width - 32, c.height - 32);
+  st.px.forEach((p, i) => { x.fillStyle = p < 0 ? PAPER : pal[p]; x.fillRect(M + i % N * S, M + Math.floor(i / N) * S, S, S); });
+  x.fillStyle = '#6B635A'; x.font = '600 24px Fredoka, sans-serif'; x.textAlign = 'center';
+  x.fillText(`${subject} · ${Muze.tag}`, c.width / 2, N * S + M + 44);
+  Muze.download(c, 'pixel-postcard');
+};
+draw(); render();
+</script>
+</body>
+</html>
