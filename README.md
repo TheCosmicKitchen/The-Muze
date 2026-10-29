@@ -8,7 +8,7 @@ Free daily creative prompts, served as plain static pages on GitHub Pages. No bu
 
 Words
 - `blackout.html`: blackout poetry. One page from a public-domain novel each day; tap words to keep them, then black out the rest.
-- `haiku.html` (Haiku Hunt): find a 5-7-5 haiku in a different novel page, picking words in reading order. The syllable counter guesses; tap a count to correct it.
+- `haiku.html` (Haiku Hunt): find a 5-7-5 haiku in a different novel page, picking words (or snipped parts of words) in any order. The syllable counter guesses; tap a count to correct it.
 - `cutup.html`: eighteen strips cut from public-domain poems (no more than three per poet). Paste up to ten into a new poem, reorder them, cross words out.
 - `fridge.html`: fridge-magnet poetry. A daily pile of about 70 magnets, including a handful of theme words; drag them onto the door.
 - `sixwords.html`: a six-word story that has to use today's word.
