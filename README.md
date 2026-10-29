@@ -20,7 +20,7 @@ Pictures
 - `shape.html` (Shape Seed): a random red squiggle to turn into something.
 - `corpse.html` (Exquisite Corpse): head, body and legs on three days in a row. Each day shows only the strip below yesterday's fold; after the legs you see the whole creature.
 - `pixel.html` (Pixel Postcard): 16×16 pixels, four colours, one subject.
-- `collage.html`: three public-domain artworks a day. Draw around a shape to cut it out, then move, turn, resize and flip the pieces.
+- `collage.html`: three public-domain artworks a day. Cut pieces out with freehand, polygon, box or oval selection (zoom in up to 4× for fiddly bits), or take the whole picture. Then arrange them with drag handles, two-finger pinch, sliders, nudge buttons or the keyboard; flip, layer, copy, delete, or delete all. The cut-and-paste tools live in `cutpaste.js` and `cutpaste.css` so other pages can reuse them.
 
 Everything can be saved as a PNG. Every prompt is picked in the browser from a seed. The daily seed is the date, so everyone gets the same prompt. "Another one" uses a random seed, which appears in the URL hash so a prompt can be shared. Work is saved in `localStorage` on your device.
 
