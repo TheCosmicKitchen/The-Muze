@@ -92,7 +92,7 @@ document.getElementById('gridbtn').onclick = e => { showGrid = !showGrid; e.targ
 function render() { document.getElementById('done').textContent = st.done ? 'Posted ✓' : 'Post it'; }
 document.getElementById('done').onclick = () => {
   if (st.px.every(p => p < 0)) return Muze.toast('Paint a few pixels first');
-  st.done = true; Muze.save(GAME, st); render(); Muze.toast('Posted');
+  st.done = true; Muze.save(GAME, st); render(); Muze.toast('Posted'); Muze.addToGallery(GAME);
 };
 document.getElementById('save').onclick = async () => {
   await document.fonts.ready;

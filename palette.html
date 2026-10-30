@@ -76,7 +76,7 @@ function render() { document.getElementById('done').textContent = st.done ? 'Fin
 
 document.getElementById('done').onclick = () => {
   if (!complete()) return Muze.toast('Name and write a line for all five');
-  st.done = true; Muze.keep(GAME, text()); persist();
+  st.done = true; Muze.keep(GAME, text()); persist(); Muze.addToGallery(GAME);
 };
 document.getElementById('copy').onclick = () => Muze.copy(`${walk}\n\n${text()}\n\n${Muze.tag} · Palette Walk`);
 document.getElementById('save').onclick = async () => {

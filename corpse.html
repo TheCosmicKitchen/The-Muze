@@ -151,6 +151,8 @@ function render() {
 document.getElementById('done').onclick = () => {
   if (!st.img) return Muze.toast('Draw something first');
   st.done = true; Muze.save(GAME, st);
+  // No Save image button here, so hand the gallery today's panel directly.
+  Muze.addToGallery(GAME, () => Muze.download(composite(), 'corpse'));
   if (Muze.daily) {
     const p = loadPanels();
     p[Muze.today] = { part, img: composite().toDataURL('image/png') };

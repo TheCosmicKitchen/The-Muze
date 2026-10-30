@@ -97,7 +97,7 @@ tx.addEventListener('input', () => {
 tx.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (!done.disabled) done.click(); } });
 done.onclick = () => {
   if (!check()) return;
-  st.done = true; Muze.save(GAME, st); Muze.keep(GAME, tx.value.trim()); render();
+  st.done = true; Muze.save(GAME, st); Muze.keep(GAME, tx.value.trim()); render(); Muze.addToGallery(GAME);
 };
 document.getElementById('copy').onclick = () => Muze.copy(`${tx.value.trim()}\n\n${Muze.tag} · Six Words · “${word}”`);
 document.getElementById('save').onclick = async () => {

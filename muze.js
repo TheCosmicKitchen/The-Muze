@@ -54,17 +54,51 @@ const Muze = (() => {
     location.reload();
   }
 
-  // Header: back link, day label, title, and a free-play button.
+  // Header: back link, day label, title, and a free-play button (another: false hides it).
   function header({ title, lede, another = 'Another one' }) {
     const wrap = document.querySelector('.wrap');
     const dateTxt = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
     const when = daily ? `Day ${day} · ${dateTxt}` : `Free play · <a href="${location.pathname}">back to today</a>`;
     wrap.insertAdjacentHTML('afterbegin',
       `<header class="bar"><a href="./">← The Muze</a><div class="when">${when}</div></header>
-       <div class="titlerow"><h1>${title}</h1><button class="btn ghost" id="another">${another}</button></div>
+       <div class="titlerow"><h1>${title}</h1>${another ? `<button class="btn ghost" id="another">${another}</button>` : ''}</div>
        ${lede ? `<p class="lede">${lede}</p>` : ''}`);
-    document.getElementById('another').onclick = freePlay;
+    if (another) document.getElementById('another').onclick = freePlay;
     addEventListener('hashchange', () => location.reload());
+  }
+
+  // Every make, in home-page order. The gallery uses this for titles and links.
+  const GAMES = [
+    ['blackout', 'Blackout'], ['haiku', 'Haiku Hunt'], ['cutup', 'Cut-up'], ['fridge', 'Fridge'], ['sixwords', 'Six Words'],
+    ['palette', 'Palette Walk'], ['paint', 'Daub'], ['oneline', 'One Line'], ['shape', 'Shape Seed'], ['corpse', 'Exquisite Corpse'],
+    ['pixel', 'Pixel Postcard'], ['collage', 'Collage'],
+  ].map(([id, title]) => ({ id, title, page: `${id}.html` }));
+
+  // Today's gallery: a small JPEG of each finished daily piece, keyed by date then game.
+  // addToGallery() reruns this page's own "Save image" step, and download() keeps the
+  // picture instead of downloading it, so every make reuses the exporter it already has.
+  const GALLERY = 'muze-gallery';
+  let snapping = null;
+  function gallery() { try { return JSON.parse(localStorage.getItem(GALLERY)) || {}; } catch (e) { return {}; } }
+  function snap(game, canvas) {
+    const W = Math.min(900, canvas.width), H = Math.round(canvas.height * W / canvas.width);
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'); g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, W, H); g.drawImage(canvas, 0, 0, W, H);
+    const all = gallery();
+    (all[today] = all[today] || {})[game] = { img: c.toDataURL('image/jpeg', 0.82), at: Date.now() };
+    // Keep the three most recent days; drop older ones first if storage is tight.
+    Object.keys(all).sort().slice(0, -3).forEach(d => delete all[d]);
+    for (;;) {
+      try { localStorage.setItem(GALLERY, JSON.stringify(all)); return true; }
+      catch (e) { const old = Object.keys(all).sort().find(d => d !== today); if (!old) return false; delete all[old]; }
+    }
+  }
+  async function addToGallery(game, render) {
+    if (!daily) return;
+    snapping = game;
+    try { await (render || document.getElementById('save').onclick)(); }
+    catch (e) {}
+    finally { snapping = null; }
   }
 
   let toastT;
@@ -81,6 +115,10 @@ const Muze = (() => {
   }
 
   function download(canvas, name) {
+    if (snapping) {
+      if (snap(snapping, canvas)) toast('Added to today\'s gallery');
+      return;
+    }
     canvas.toBlob(b => {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(b); a.download = `${name}-${daily ? today : seed}.png`;
@@ -199,5 +237,6 @@ const Muze = (() => {
     'a heart|a duck|a slice of pizza|a flower in a pot|a hedgehog|a skull|an anchor|a crab|a planet with rings|a cherry|a bell').split('|');
 
   return { today, daily, seed, day, rng, pick, shuffle, load, save, keep, header, toast, copy, download, tag, css,
+    GAMES, gallery, addToGallery,
     sketch, card, syllables, PALETTES, SUBJECTS };
 })();

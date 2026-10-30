@@ -5,6 +5,7 @@ Live at https://thecosmickitchen.github.io/The-Muze/
 Free daily creative prompts, served as plain static pages on GitHub Pages. No build step and no server. A sister site to [The Puzz](https://thecosmickitchen.github.io/The-Puzz/).
 
 - `index.html`: today's set, plus a shelf of what you've written lately
+- `gallery.html`: everything you finished today on one wall. Copy it to the clipboard as a single picture, share it from a phone, save it, or copy a text summary. Each make adds a small picture of your piece when you press its finish button; the last three days are kept.
 
 Words
 - `blackout.html`: blackout poetry. One page from a public-domain novel each day; tap words to keep them, then black out the rest.

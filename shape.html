@@ -92,7 +92,7 @@ document.getElementById('undo').onclick = () => { if (!pad.undo()) return Muze.t
 document.getElementById('clear').onclick = () => { if (!confirm('Clear your drawing? The squiggle stays.')) return; pad.clear(); st.img = null; Muze.save(GAME, st); };
 const doneBtn = document.getElementById('done');
 const renderDone = () => doneBtn.textContent = st.done ? 'Done ✓' : 'Done';
-doneBtn.onclick = () => { if (!st.img) return Muze.toast('Draw something first'); st.done = true; Muze.save(GAME, st); renderDone(); };
+doneBtn.onclick = () => { if (!st.img) return Muze.toast('Draw something first'); st.done = true; Muze.save(GAME, st); renderDone(); Muze.addToGallery(GAME); };
 renderDone();
 document.getElementById('save').onclick = async () => {
   await document.fonts.ready;

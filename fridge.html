@@ -189,7 +189,7 @@ addEventListener('resize', placeAll);
 
 document.getElementById('done').onclick = () => {
   const p = poemText(); if (!p) return Muze.toast('Drag some magnets up first');
-  st.done = true; Muze.keep(GAME, p); Muze.save(GAME, st); render(); Muze.toast('Pinned to the fridge');
+  st.done = true; Muze.keep(GAME, p); Muze.save(GAME, st); render(); Muze.toast('Pinned to the fridge'); Muze.addToGallery(GAME);
 };
 document.getElementById('copy').onclick = () => {
   const p = poemText(); if (!p) return Muze.toast('Nothing on the door yet');

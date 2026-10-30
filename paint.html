@@ -189,7 +189,7 @@ if (st.img) { const im = new Image(); im.onload = () => g.drawImage(im, 0, 0); i
 
 const doneBtn = document.getElementById('done');
 const renderDone = () => doneBtn.textContent = st.done ? 'Hung up ✓' : 'Hang it up';
-doneBtn.onclick = () => { st.done = true; persist(); renderDone(); Muze.toast('Hung on the wall'); };
+doneBtn.onclick = () => { st.done = true; persist(); renderDone(); Muze.toast('Hung on the wall'); Muze.addToGallery(GAME); };
 renderDone();
 
 document.getElementById('save').onclick = async () => {

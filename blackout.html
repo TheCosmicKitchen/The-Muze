@@ -137,6 +137,7 @@ document.getElementById('go').onclick = () => {
   st.out = !st.out;
   if (st.out) { st.done = true; Muze.keep(GAME, poemText()); }
   Muze.save(GAME, st); render();
+  if (st.out) Muze.addToGallery(GAME);
 };
 document.getElementById('clear').onclick = () => {
   if (st.kept.length && !confirm('Clear all kept words?')) return;
