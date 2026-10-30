@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Speech Bubbles · The Muze</title>
+<meta name="description" content="Three panels cut from old paintings, with empty speech bubbles. Write what everyone is saying.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,400&family=Nunito:wght@400;600;700&family=Comic+Neue:wght@700&display=swap">
+<link rel="stylesheet" href="muze.css">
+<style>
+/* Layout: prompt, then the strip: three panels in a row (stacked on phones), each a crop of an old painting
+   with bubbles laid over it. A small tool row appears on the panel whose bubble is selected. */
+.strip{background:#FFFDF8;border-radius:6px;padding:14px;box-shadow:0 1px 0 var(--paper-edge),0 10px 30px -18px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:10px}
+.title{font:700 20px/1.2 "Comic Neue","Comic Sans MS",cursive;color:#1E1B17;text-align:center;text-transform:uppercase;letter-spacing:.04em;text-wrap:balance}
+.panels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:620px){.panels{grid-template-columns:minmax(0,1fr)}}
+.panel{position:relative;aspect-ratio:20/23;max-width:100%;overflow:hidden;border:3px solid #1E1B17;background:#D8CFBD;container-type:inline-size;touch-action:none}
+.panel>img{position:absolute;max-width:none;pointer-events:none;user-select:none;-webkit-user-select:none}
+.panel svg.tails{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.tails path{fill:#FFFDF8;stroke:#1E1B17;stroke-width:2.5;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.tails circle{fill:#FFFDF8;stroke:#1E1B17;stroke-width:2.5;vector-effect:non-scaling-stroke}
+.bub{position:absolute;background:#FFFDF8;border:2.5px solid #1E1B17;border-radius:999px;padding:.55em 1em;display:flex}
+.bub.t{border-radius:46% / 50%;box-shadow:0 0 0 2px #FFFDF8 inset}
+.bub.c{border-radius:2px;background:#FBE7A1;padding:.4em .6em}
+.bub textarea{all:unset;display:block;box-sizing:border-box;width:100%;font:700 6.2cqw/1.15 "Comic Neue","Comic Sans MS",cursive;color:#1E1B17;text-align:center;text-transform:uppercase;resize:none;overflow:hidden;min-height:1.15em;white-space:pre-wrap;overflow-wrap:anywhere;cursor:text}
+.bub.c textarea{text-align:left;font-size:5.4cqw}
+.bub textarea::placeholder{color:#A39A8C}
+.bub.sel{outline:2.5px dashed var(--f1);outline-offset:4px}
+.h{position:absolute;width:28px;height:28px;border-radius:50%;background:var(--f1);color:#fff;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font:700 13px var(--body);cursor:grab;touch-action:none;z-index:3;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.h.move{left:-16px;top:-16px}
+.h.size{right:-16px;bottom:50%;transform:translateY(50%);cursor:ew-resize}
+.h.tip{width:22px;height:22px;margin:-11px 0 0 -11px;background:var(--f0)}
+.ptools{position:absolute;left:6px;right:6px;bottom:6px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap;z-index:4}
+.ptools button{font:700 12px var(--body);border:1.5px solid #1E1B17;background:#FFFDF8;color:#1E1B17;border-radius:999px;padding:4px 10px;cursor:pointer;min-height:30px}
+.ptools button[aria-pressed="true"]{background:#1E1B17;color:#FFFDF8}
+.add{position:absolute;right:6px;top:6px;width:30px;height:30px;border-radius:50%;border:2px solid #1E1B17;background:#FFFDF8;color:#1E1B17;font:700 18px/1 var(--body);cursor:pointer;z-index:4;padding:0;opacity:.85}
+.add:hover{opacity:1}
+.cred{font-size:12px;color:var(--muted)}
+.cred i{font-family:var(--serif)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="prompt" id="prompt"></div>
+  <div class="strip" id="strip"><div class="title" id="title"></div><div class="panels" id="panels"></div></div>
+  <div class="tools">
+    <button class="btn primary" id="done">Done</button>
+    <button class="btn" id="save">Save image</button>
+    <span class="gap"></span>
+    <button class="btn" id="reset">Empty the bubbles</button>
+  </div>
+  <p class="cred" id="cred"></p>
+  <p class="foot">Tap a bubble to write in it. Drag ✥ to move it, ↔ to resize, and the red dot to aim its tail. + adds another bubble to a panel.</p>
+</div>
+<script src="data/art.js"></script>
+<script src="muze.js"></script>
+<script>
+Muze.header({ title: 'Speech Bubbles', another: 'Another strip' });
+const GAME = 'strip', PW = 400, PH = 460, MAX_BUBBLES = 4;
+const TITLES = ['The Job Interview', 'Nobody Told Me About the Snakes', 'Monday', 'The Big Secret', 'A Small Misunderstanding',
+  'Family Dinner', 'The Group Project', 'Who Ate It?', 'First Day', 'The Plan', 'An Important Announcement', 'Lost and Found',
+  'The Neighbours', 'Overheard at the Museum', 'Customer Service', 'The Holiday', 'Something Smells Funny', 'The Rehearsal',
+  'Too Many Cooks', 'It Was Like This When I Got Here', 'The Quiet Hour', 'Bad News, Good News', 'The Long Wait', 'Anything Goes'];
+
+// Today's three panels: a crop of a different artwork in each, the same for everyone.
+const r = Muze.rng(Muze.seed + 'strip');
+const title = Muze.pick(TITLES, r);
+const panels = Muze.shuffle(ART.map((_, i) => i), r).slice(0, 3).map(i => ({ art: ART[i], z: 1.1 + r() * .6, fx: r(), fy: r() * .7 }));
+const starter = p => {
+  const x = 6 + r() * 30, y = 5 + r() * 12;
+  return { p, k: 's', x, y, w: 52, tx: x + 12 + r() * 28, ty: y + 26 + r() * 10, text: '' };
+};
+const first = panels.map((_, p) => starter(p));
+const fresh = () => JSON.parse(JSON.stringify(first));
+
+document.getElementById('prompt').innerHTML =
+  `<span class="k">Today's strip</span><span class="v"></span><span class="s">Three panels from old paintings, and nobody's said anything yet. Fill in the bubbles.</span>`;
+document.querySelector('#prompt .v').textContent = `“${title}”`;
+document.getElementById('title').textContent = title;
+const cred = document.getElementById('cred');
+cred.append('Panels from ');
+panels.forEach((pn, k) => {
+  const i = document.createElement('i'); i.textContent = pn.art.t;
+  cred.append(i, `, ${pn.art.a}${k < 2 ? '; ' : '. '}`);
+});
+cred.append('Art Institute of Chicago, public domain (CC0).');
+
+const st = Muze.load(GAME) || { b: fresh(), done: false };
+let sel = -1;
+
+// The crop: cover the panel, zoomed in by z, shifted to (fx, fy). Shared by the page and the saved image.
+function crop(img, pw, ph, pn) {
+  const s = Math.max(pw / img.naturalWidth, ph / img.naturalHeight) * pn.z, w = img.naturalWidth * s, h = img.naturalHeight * s;
+  return { x: (pw - w) * pn.fx, y: (ph - h) * pn.fy, w, h };
+}
+
+const panelsEl = document.getElementById('panels');
+const els = panels.map((pn, p) => {
+  const el = document.createElement('div'); el.className = 'panel'; el.dataset.p = p;
+  const img = new Image(); img.alt = ''; img.src = `art/${pn.art.i}.jpg`;
+  img.onload = () => { const c = crop(img, PW, PH, pn); Object.assign(img.style, { left: c.x / PW * 100 + '%', top: c.y / PH * 100 + '%', width: c.w / PW * 100 + '%', height: c.h / PH * 100 + '%' }); };
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.classList.add('tails'); svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('preserveAspectRatio', 'none');
+  const add = document.createElement('button'); add.className = 'add'; add.textContent = '+'; add.title = 'Add a bubble'; add.setAttribute('aria-label', `Add a bubble to panel ${p + 1}`);
+  add.onclick = e => {
+    e.stopPropagation();
+    if (st.b.filter(b => b.p === p).length >= MAX_BUBBLES) return Muze.toast(`Up to ${MAX_BUBBLES} bubbles a panel`);
+    st.b.push({ p, k: 's', x: 24, y: 30, w: 50, tx: 50, ty: 70, text: '' }); sel = st.b.length - 1; st.done = false; persist(true);
+  };
+  el.append(img, svg, add); panelsEl.append(el);
+  el.addEventListener('pointerdown', e => { if (e.target === el || e.target === img) { sel = -1; draw(); } });
+  return { el, svg, img };
+});
+
+const pct = (e, el) => { const R = el.getBoundingClientRect(); return [(e.clientX - R.left) / R.width * 100, (e.clientY - R.top) / R.height * 100]; };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+// Drag a handle: fn gets the pointer position in panel percent.
+function dragger(handle, panelEl, fn) {
+  handle.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation(); try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+    const mv = ev => { fn(...pct(ev, panelEl)); place(); };
+    const up = () => { handle.removeEventListener('pointermove', mv); handle.removeEventListener('pointerup', up); handle.removeEventListener('pointercancel', up); persist(); };
+    handle.addEventListener('pointermove', mv); handle.addEventListener('pointerup', up); handle.addEventListener('pointercancel', up);
+  });
+}
+
+// Full rebuild of every panel's bubbles; text edits only resize in place so typing keeps focus.
+function draw(focusSel) {
+  els.forEach(({ el }) => el.querySelectorAll('.bub,.ptools,.h.tip').forEach(n => n.remove()));
+  st.b.forEach((b, k) => {
+    const { el } = els[b.p];
+    const d = document.createElement('div'); d.className = `bub ${b.k}${k === sel ? ' sel' : ''}`; d.dataset.k = k;
+    const ta = document.createElement('textarea'); ta.rows = 1; ta.value = b.text; ta.maxLength = 140;
+    ta.placeholder = b.k === 'c' ? 'Meanwhile…' : '…'; ta.setAttribute('aria-label', `Panel ${b.p + 1} ${b.k === 'c' ? 'caption' : b.k === 't' ? 'thought bubble' : 'speech bubble'}`);
+    ta.oninput = () => { b.text = ta.value; st.done = false; fit(ta); place(); persist(); };
+    ta.onfocus = () => { if (sel !== k) { sel = k; draw(true); } };
+    d.append(ta); el.append(d);
+    if (k === sel) {
+      const mv = document.createElement('span'); mv.className = 'h move'; mv.textContent = '✥'; mv.title = 'Move';
+      // the tail moves along with its bubble
+      dragger(mv, el, (x, y) => { const ox = b.x, oy = b.y; b.x = clamp(x, 0, 100 - b.w); b.y = clamp(y, 0, 90); b.tx = clamp(b.tx + b.x - ox, 0, 100); b.ty = clamp(b.ty + b.y - oy, 0, 100); });
+      const sz = document.createElement('span'); sz.className = 'h size'; sz.textContent = '↔'; sz.title = 'Resize';
+      dragger(sz, el, x => { b.w = clamp(x - b.x, 22, 100 - b.x); place(); fit(ta); });
+      d.append(mv, sz);
+      if (b.k !== 'c') {
+        const tip = document.createElement('span'); tip.className = 'h tip'; tip.title = 'Aim the tail';
+        dragger(tip, el, (x, y) => { b.tx = clamp(x, 0, 100); b.ty = clamp(y, 0, 100); });
+        el.append(tip);
+      }
+      const tools = document.createElement('div'); tools.className = 'ptools';
+      [['s', 'Speech'], ['t', 'Thought'], ['c', 'Caption']].forEach(([kk, label]) => {
+        const bt = document.createElement('button'); bt.textContent = label; bt.setAttribute('aria-pressed', b.k === kk);
+        bt.onclick = () => { b.k = kk; persist(true); };
+        tools.append(bt);
+      });
+      const del = document.createElement('button'); del.textContent = 'Remove';
+      del.onclick = () => { st.b.splice(k, 1); sel = -1; st.done = false; persist(true); };
+      tools.append(del); el.append(tools);
+      if (focusSel) requestAnimationFrame(() => { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); });
+    }
+  });
+  refit();
+  const done = document.getElementById('done');
+  done.textContent = st.done ? 'Done ✓' : 'Done';
+}
+const fit = ta => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+// widths first (place), then text heights, then tails again now the heights are known
+const refit = () => { place(); els.forEach(({ el }) => el.querySelectorAll('textarea').forEach(fit)); place(); };
+
+// Position bubbles, tail tips and tails (tails are drawn from just inside the bubble to the tip).
+function place() {
+  els.forEach(({ svg }) => svg.innerHTML = '');
+  st.b.forEach((b, k) => {
+    const { el, svg } = els[b.p], d = el.querySelector(`.bub[data-k="${k}"]`); if (!d) return;
+    Object.assign(d.style, { left: b.x + '%', top: b.y + '%', width: b.w + '%' });
+    const tip = k === sel && el.querySelector('.h.tip'); if (tip) Object.assign(tip.style, { left: b.tx + '%', top: b.ty + '%' });
+    if (b.k === 'c') return;
+    const R = el.getBoundingClientRect(), hPct = d.offsetHeight / R.height * 100;
+    const cx = b.x + b.w / 2, cy = b.y + hPct / 2;
+    if (b.k === 's') {
+      const a = Math.atan2(b.ty - cy, b.tx - cx), spread = Math.min(b.w * .14, 7), nx = -Math.sin(a) * spread, ny = Math.cos(a) * spread * R.width / R.height;
+      svg.insertAdjacentHTML('beforeend', `<path d="M${cx + nx},${cy + ny}L${b.tx},${b.ty}L${cx - nx},${cy - ny}Z"/>`);
+    } else {
+      [.45, .7, .88].forEach((t, j) => {
+        const x = cx + (b.tx - cx) * t, y = cy + (b.ty - cy) * t, rr = [2.6, 1.8, 1.2][j];
+        svg.insertAdjacentHTML('beforeend', `<ellipse cx="${x}" cy="${y}" rx="${rr}" ry="${rr * R.width / R.height}" fill="#FFFDF8" stroke="#1E1B17" stroke-width="2.5" vector-effect="non-scaling-stroke"/>`);
+      });
+    }
+  });
+}
+addEventListener('resize', refit);
+document.fonts.ready.then(() => draw());
+
+function persist(redraw) { Muze.save(GAME, st); if (redraw) draw(true); }
+document.addEventListener('pointerdown', e => { if (sel >= 0 && !e.target.closest('.panel')) { sel = -1; draw(); } });
+
+const lines = () => panels.map((_, p) => st.b.filter(b => b.p === p && b.text.trim()).map(b => (b.k === 'c' ? '[' + b.text.trim() + ']' : '“' + b.text.trim() + '”')).join(' ')).map((t, p) => `${p + 1}. ${t || '…'}`);
+document.getElementById('done').onclick = () => {
+  if (!st.b.some(b => b.text.trim())) return Muze.toast('Write something in a bubble first');
+  st.done = true; Muze.keep(GAME, `${title}\n${lines().join('\n')}`); persist(true); Muze.addToGallery(GAME);
+};
+document.getElementById('reset').onclick = () => { st.b = fresh(); sel = -1; st.done = false; persist(true); };
+
+// Saved image: the strip on paper, panels side by side, bubbles redrawn on canvas.
+document.getElementById('save').onclick = async () => {
+  await document.fonts.ready;
+  const S = 2, pw = PW, ph = PH, gap = 24, pad = 40, top = 96, W = pad * 2 + pw * 3 + gap * 2, H = top + ph + 90;
+  const c = document.createElement('canvas'); c.width = W * S; c.height = H * S;
+  const g = c.getContext('2d'); g.scale(S, S);
+  g.fillStyle = '#FFFDF8'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#1E1B17'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '700 32px "Comic Neue", "Comic Sans MS", cursive';
+  g.fillText(title.toUpperCase(), W / 2, top / 2 + 4);
+  panels.forEach((pn, p) => {
+    const ox = pad + p * (pw + gap), oy = top, img = els[p].img;
+    g.save(); g.beginPath(); g.rect(ox, oy, pw, ph); g.clip();
+    g.fillStyle = '#D8CFBD'; g.fillRect(ox, oy, pw, ph);
+    if (img.complete && img.naturalWidth) { const cr = crop(img, pw, ph, pn); g.drawImage(img, ox + cr.x, oy + cr.y, cr.w, cr.h); }
+    st.b.filter(b => b.p === p).forEach(b => bubble(g, b, ox, oy, pw, ph));
+    g.restore();
+    g.lineWidth = 6; g.strokeStyle = '#1E1B17'; g.strokeRect(ox, oy, pw, ph);
+  });
+  g.fillStyle = '#7B7264'; g.font = '700 16px Nunito, sans-serif'; g.fillText(Muze.tag.toUpperCase(), W / 2, top + ph + 45);
+  Muze.download(c, 'speech-bubbles');
+};
+function wrap(g, text, maxW) {
+  const out = [];
+  String(text).split('\n').forEach(par => {
+    let line = '';
+    par.split(' ').forEach(w => { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; });
+    out.push(line);
+  });
+  return out;
+}
+function bubble(g, b, ox, oy, pw, ph) {
+  const cap = b.k === 'c', fs = pw * (cap ? .054 : .062), lh = fs * 1.15, padX = cap ? fs * .6 : fs * 1, padY = cap ? fs * .4 : fs * .55;
+  g.font = `700 ${fs}px "Comic Neue", "Comic Sans MS", cursive`;
+  const w = b.w / 100 * pw, text = (b.text.trim() || '').toUpperCase(), ls = text ? wrap(g, text, w - padX * 2) : [''];
+  const h = ls.length * lh + padY * 2, x = ox + b.x / 100 * pw, y = oy + b.y / 100 * ph, tx = ox + b.tx / 100 * pw, ty = oy + b.ty / 100 * ph, cx = x + w / 2, cy = y + h / 2;
+  g.lineWidth = 2.5; g.strokeStyle = '#1E1B17'; g.fillStyle = cap ? '#FBE7A1' : '#FFFDF8';
+  if (b.k === 's') {
+    const a = Math.atan2(ty - cy, tx - cx), sp = Math.min(w * .14, pw * .07);
+    g.beginPath(); g.moveTo(cx - Math.sin(a) * sp, cy + Math.cos(a) * sp); g.lineTo(tx, ty); g.lineTo(cx + Math.sin(a) * sp, cy - Math.cos(a) * sp); g.closePath(); g.fill(); g.stroke();
+  } else if (b.k === 't') {
+    [.45, .7, .88].forEach((t, j) => { g.beginPath(); g.arc(cx + (tx - cx) * t, cy + (ty - cy) * t, [10, 7, 4.6][j], 0, Math.PI * 2); g.fill(); g.stroke(); });
+  }
+  g.beginPath();
+  if (cap) g.rect(x, y, w, h);
+  else if (b.k === 't') g.ellipse(cx, cy, w / 2, h / 2 + 2, 0, 0, Math.PI * 2);
+  else g.roundRect(x, y, w, h, Math.min(h / 2, w / 2));
+  g.fill(); g.stroke();
+  g.fillStyle = '#1E1B17'; g.textBaseline = 'middle'; g.textAlign = cap ? 'left' : 'center';
+  ls.forEach((l, i) => g.fillText(l, cap ? x + padX : cx, y + padY + lh * (i + .5)));
+}
+draw();
+</script>
+</body>
+</html>

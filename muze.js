@@ -70,7 +70,7 @@ const Muze = (() => {
   // Every make, in home-page order. The gallery uses this for titles and links.
   const GAMES = [
     ['blackout', 'Blackout'], ['haiku', 'Haiku Hunt'], ['cutup', 'Cut-up'], ['fridge', 'Fridge'], ['sixwords', 'Six Words'],
-    ['palette', 'Palette Walk'], ['paint', 'Daub'], ['oneline', 'One Line'], ['shape', 'Shape Seed'], ['corpse', 'Exquisite Corpse'],
+    ['palette', 'Palette Walk'], ['strip', 'Speech Bubbles'], ['paint', 'Daub'], ['oneline', 'One Line'], ['shape', 'Shape Seed'], ['corpse', 'Exquisite Corpse'],
     ['pixel', 'Pixel Postcard'], ['collage', 'Collage'],
   ].map(([id, title]) => ({ id, title, page: `${id}.html` }));
 
