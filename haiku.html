@@ -18,6 +18,9 @@
 .ln.over .n{color:var(--f0)}
 .chips{display:flex;flex-wrap:wrap;gap:4px 6px;font:18px/1.3 var(--serif)}
 .chip{display:inline-flex;align-items:baseline;gap:3px}
+.chip .t{cursor:pointer}
+.chip .t:hover{text-decoration:line-through}
+.chip.frag .t{text-decoration:underline dotted;text-underline-offset:3px}
 .chip sup{font:600 10px var(--display);color:var(--muted);background:var(--felt);border-radius:6px;padding:1px 4px;cursor:pointer}
 .chips:empty::before{content:"tap words on the page";color:var(--muted);font:14px var(--body)}
 .paper{background:var(--paper);color:var(--paper-ink);border-radius:6px;padding:24px 24px 20px;box-shadow:0 1px 0 var(--paper-edge),0 10px 30px -18px rgba(0,0,0,.45)}
@@ -27,7 +30,14 @@
 .w{cursor:pointer;border-radius:4px;padding:.05em .1em}
 .w:hover{background:rgba(0,0,0,.07)}
 .w.used{background:rgba(214,151,32,.35)}
-.w.past{color:#A39A8C}
+.w.part{background:rgba(214,151,32,.16);text-decoration:underline dotted rgba(140,98,20,.8);text-underline-offset:4px}
+.text.snipping .w{cursor:crosshair}
+/* Snipper: a sheet at the bottom of the screen for picking part of a word, letter by letter. */
+.snip{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:2px solid var(--ink);padding:14px max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;align-items:center;box-shadow:0 -10px 30px -18px rgba(0,0,0,.5)}
+.snip .k{font:600 12px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.letters{display:flex;flex-wrap:wrap;gap:3px;justify-content:center}
+.letters button{font:22px var(--serif);min-width:34px;height:46px;border:2px solid var(--line);background:var(--paper);color:var(--paper-ink);border-radius:8px;cursor:pointer;padding:0 4px}
+.letters button.in{background:var(--f2);border-color:var(--ink)}
 </style>
 </head>
 <body>
@@ -37,12 +47,18 @@
   <div class="tools">
     <button class="btn primary" id="done" disabled>Finish</button>
     <button class="btn" id="undo">Undo word</button>
+    <button class="btn" id="snip" aria-pressed="false" title="Take only part of a word">✂ Snip</button>
     <span class="gap"></span>
     <button class="btn" id="copy" hidden>Copy</button>
     <button class="btn" id="save" hidden>Save image</button>
   </div>
   <div class="paper"><div class="src" id="src"></div><div class="text" id="text"></div></div>
-  <p class="foot">Words must come in the order they appear on the page. The syllable counter guesses: tap a word's number to correct it.</p>
+  <p class="foot">Pick words in any order. Use ✂ Snip to take just part of a word. Tap a word in your haiku to take it out. The syllable counter guesses: tap a word's number to correct it.</p>
+</div>
+<div class="snip" id="snipper" hidden>
+  <div class="k">Tap the first and last letter to keep</div>
+  <div class="letters" id="letters"></div>
+  <div class="tools"><button class="btn primary" id="snipAdd" disabled>Add</button><button class="btn" id="snipCancel">Cancel</button></div>
 </div>
 <script src="data/pages.js"></script>
 <script src="muze.js"></script>
@@ -55,7 +71,7 @@ const order = Muze.shuffle(PAGES.map((_, i) => i), Muze.rng('muze-blackout-order
 const pageIdx = Muze.daily ? order[(Muze.day - 1 + 190) % order.length] : Math.floor(Muze.rng(Muze.seed + 'haiku')() * PAGES.length);
 const page = PAGES[pageIdx], book = BOOKS[page.b];
 document.getElementById('prompt').innerHTML =
-  `<span class="k">Hunt through</span><span class="v">${book.t}</span><span class="s">${book.a} · Pick words in reading order to make three lines of 5, 7 and 5 syllables.</span>`;
+  `<span class="k">Hunt through</span><span class="v">${book.t}</span><span class="s">${book.a} · Pick words, or parts of words, in any order to make three lines of 5, 7 and 5 syllables.</span>`;
 document.getElementById('src').textContent = `from ${book.t}, ${book.a}`;
 
 const textEl = document.getElementById('text'), words = [];
@@ -70,11 +86,23 @@ page.t.split('\n').forEach(par => {
 });
 const clean = w => w.replace(/^[^\p{L}]+|[^\p{L}’']+$/gu, '');
 
+// A line holds picks in the order they were tapped. A pick is a word index (the whole word)
+// or {i, a, b}: letters a..b of word i. Older saves only have word indices, which still work.
 const st = Muze.load(GAME) || { lines: [[], [], []], fix: {}, cur: 0, done: false };
-const syl = i => st.fix[i] ?? Muze.syllables(clean(words[i].textContent));
-const count = l => st.lines[l].reduce((n, i) => n + syl(i), 0);
-const lastPicked = () => Math.max(-1, ...st.lines.flat());
-const text = () => st.lines.map(l => l.map(i => clean(words[i].textContent)).join(' ')).join('\n');
+const wi = p => typeof p === 'number' ? p : p.i;
+const key = p => typeof p === 'number' ? String(p) : `${p.i}:${p.a}-${p.b}`;
+const letters = i => Array.from(clean(words[i].textContent));
+const piece = p => typeof p === 'number' ? clean(words[p].textContent) : letters(p.i).slice(p.a, p.b + 1).join('');
+const syl = p => st.fix[key(p)] ?? Muze.syllables(piece(p));
+const count = l => st.lines[l].reduce((n, p) => n + syl(p), 0);
+const text = () => st.lines.map(l => l.map(piece).join(' ')).join('\n');
+const findPick = k => { for (const l of st.lines) { const j = l.findIndex(p => key(p) === k); if (j >= 0) return [l, j]; } return null; };
+function add(p) {
+  if (findPick(key(p))) return Muze.toast('Already in your haiku');
+  st.lines[st.cur].push(p);
+  if (st.cur < 2 && count(st.cur) === TARGET[st.cur]) st.cur++;
+  st.done = false; persist();
+}
 
 const linesEl = document.getElementById('lines');
 function render() {
@@ -84,18 +112,19 @@ function render() {
     row.className = 'ln' + (li === st.cur ? ' cur' : '') + (n === TARGET[li] ? ' ok' : n > TARGET[li] ? ' over' : '');
     row.innerHTML = `<span class="n">${n}/${TARGET[li]}</span><span class="chips"></span>`;
     const chips = row.querySelector('.chips');
-    l.forEach(i => {
-      const c = document.createElement('span'); c.className = 'chip';
-      c.textContent = clean(words[i].textContent);
-      const sup = document.createElement('sup'); sup.textContent = syl(i); sup.title = 'Tap to correct the syllable count';
-      sup.onclick = e => { e.stopPropagation(); st.fix[i] = syl(i) % 5 + 1; persist(); };
-      c.append(sup); chips.append(c);
+    l.forEach((p, k) => {
+      const c = document.createElement('span'); c.className = 'chip' + (typeof p === 'number' ? '' : ' frag');
+      const t = document.createElement('span'); t.className = 't'; t.textContent = piece(p); t.title = 'Tap to take it out';
+      t.onclick = e => { e.stopPropagation(); l.splice(k, 1); st.done = false; persist(); };
+      const sup = document.createElement('sup'); sup.textContent = syl(p); sup.title = 'Tap to correct the syllable count';
+      sup.onclick = e => { e.stopPropagation(); st.fix[key(p)] = syl(p) % 5 + 1; persist(); };
+      c.append(t, sup); chips.append(c);
     });
     row.onclick = () => { st.cur = li; persist(); };
     linesEl.append(row);
   });
-  const used = new Set(st.lines.flat()), last = lastPicked();
-  words.forEach((w, i) => { w.classList.toggle('used', used.has(i)); w.classList.toggle('past', i < last && !used.has(i)); });
+  const all = st.lines.flat(), whole = new Set(all.filter(p => typeof p === 'number')), part = new Set(all.map(wi));
+  words.forEach((w, i) => { w.classList.toggle('used', whole.has(i)); w.classList.toggle('part', part.has(i) && !whole.has(i)); });
   const ok = st.lines.every((_, li) => count(li) === TARGET[li]);
   const done = document.getElementById('done');
   done.disabled = !ok; done.textContent = st.done && ok ? 'Finished ✓' : 'Finish';
@@ -103,18 +132,50 @@ function render() {
 }
 function persist() { Muze.save(GAME, st); render(); }
 
+// Snip mode: the next word tapped opens the snipper instead of being picked whole.
+const snipBtn = document.getElementById('snip'), snipper = document.getElementById('snipper'),
+  lettersEl = document.getElementById('letters'), snipAdd = document.getElementById('snipAdd');
+let snipping = false, sn = null;
+function setSnipping(on) { snipping = on; snipBtn.setAttribute('aria-pressed', on); textEl.classList.toggle('snipping', on); if (!on) closeSnip(); }
+function openSnip(i) {
+  sn = { i, chars: letters(i), a: null, b: null, anchor: null };
+  snipper.hidden = false; drawSnip();
+}
+function closeSnip() { sn = null; snipper.hidden = true; }
+function drawSnip() {
+  lettersEl.innerHTML = '';
+  sn.chars.forEach((ch, k) => {
+    const b = document.createElement('button'); b.textContent = ch;
+    b.className = sn.a !== null && k >= sn.a && k <= sn.b ? 'in' : '';
+    b.onclick = () => {
+      // First tap marks one letter; the second stretches to it; a third starts again.
+      if (sn.anchor === null) { sn.anchor = k; sn.a = sn.b = k; }
+      else { sn.a = Math.min(sn.anchor, k); sn.b = Math.max(sn.anchor, k); sn.anchor = null; }
+      drawSnip();
+    };
+    lettersEl.append(b);
+  });
+  const frag = sn.a === null ? '' : sn.chars.slice(sn.a, sn.b + 1).join('');
+  snipAdd.disabled = !/\p{L}/u.test(frag);
+  snipAdd.textContent = frag ? `Add “${frag}”` : 'Add';
+}
+snipBtn.onclick = () => setSnipping(!snipping);
+document.getElementById('snipCancel').onclick = closeSnip;
+snipAdd.onclick = () => {
+  const { i, a, b, chars } = sn;
+  setSnipping(false);
+  add(a === 0 && b === chars.length - 1 ? i : { i, a, b });
+};
+addEventListener('keydown', e => { if (e.key === 'Escape' && sn) closeSnip(); });
+
 textEl.addEventListener('click', e => {
   const w = e.target.closest('.w'); if (!w) return;
   const i = +w.dataset.i;
-  for (const l of st.lines) { const k = l.indexOf(i); if (k >= 0) { l.splice(k, 1); st.done = false; return persist(); } }
   if (!clean(w.textContent)) return;
-  // Reading order: a line can't use words from before anything picked in an earlier line,
-  // and words within a line stay in order.
-  const before = st.lines.slice(0, st.cur).flat(), after = st.lines.slice(st.cur + 1).flat();
-  if (before.some(j => j > i) || after.some(j => j < i)) return Muze.toast('Keep to reading order');
-  const l = st.lines[st.cur]; l.push(i); l.sort((a, b) => a - b);
-  if (st.cur < 2 && count(st.cur) === TARGET[st.cur]) st.cur++;
-  st.done = false; persist();
+  if (snipping) return openSnip(i);
+  const hit = findPick(String(i));
+  if (hit) { hit[0].splice(hit[1], 1); st.done = false; return persist(); }
+  add(i);
 });
 document.getElementById('undo').onclick = () => {
   let li = st.cur; while (li > 0 && !st.lines[li].length) li--;
