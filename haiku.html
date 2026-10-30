@@ -182,7 +182,7 @@ document.getElementById('undo').onclick = () => {
   const l = st.lines[li]; if (!l.length) return;
   l.pop(); st.cur = li; st.done = false; persist();
 };
-document.getElementById('done').onclick = () => { st.done = true; Muze.keep(GAME, text()); persist(); };
+document.getElementById('done').onclick = () => { st.done = true; Muze.keep(GAME, text()); persist(); Muze.addToGallery(GAME); };
 document.getElementById('copy').onclick = () => Muze.copy(`${text()}\n\n(found in ${book.t}, ${book.a})\n${Muze.tag}`);
 document.getElementById('save').onclick = async () => {
   await document.fonts.ready;

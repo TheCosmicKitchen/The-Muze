@@ -197,7 +197,7 @@ document.addEventListener('pointerdown', e => { if (sel >= 0 && !e.target.closes
 const lines = () => panels.map((_, p) => st.b.filter(b => b.p === p && b.text.trim()).map(b => (b.k === 'c' ? '[' + b.text.trim() + ']' : '“' + b.text.trim() + '”')).join(' ')).map((t, p) => `${p + 1}. ${t || '…'}`);
 document.getElementById('done').onclick = () => {
   if (!st.b.some(b => b.text.trim())) return Muze.toast('Write something in a bubble first');
-  st.done = true; Muze.keep(GAME, `${title}\n${lines().join('\n')}`); persist(true);
+  st.done = true; Muze.keep(GAME, `${title}\n${lines().join('\n')}`); persist(true); Muze.addToGallery(GAME);
 };
 document.getElementById('reset').onclick = () => { st.b = fresh(); sel = -1; st.done = false; persist(true); };
 

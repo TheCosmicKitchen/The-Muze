@@ -109,7 +109,7 @@ function persist() { Muze.save(GAME, st); render(); }
 
 document.getElementById('done').onclick = () => {
   if (st.rows.length < 2) return Muze.toast('Paste down at least two lines');
-  st.done = true; Muze.keep(GAME, text()); persist();
+  st.done = true; Muze.keep(GAME, text()); persist(); Muze.addToGallery(GAME);
 };
 document.getElementById('copy').onclick = () => {
   if (!st.rows.length) return Muze.toast('Nothing pasted yet');

@@ -80,7 +80,7 @@ const doneBtn = document.getElementById('done');
 function renderDone() { doneBtn.textContent = st.done ? 'Done ✓' : 'Done'; }
 doneBtn.onclick = () => {
   if (!st.items.length) return Muze.toast('Cut out a piece first');
-  st.done = true; Muze.save(GAME, st); renderDone(); Muze.toast('Pasted down');
+  st.done = true; Muze.save(GAME, st); renderDone(); Muze.toast('Pasted down'); Muze.addToGallery(GAME);
 };
 renderDone();
 document.getElementById('save').onclick = async () => {

@@ -49,7 +49,7 @@ function render() {
 document.getElementById('again').onclick = () => { pad.clear(); st.img = null; st.done = false; Muze.save(GAME, st); render(); };
 document.getElementById('done').onclick = () => {
   if (!st.img) return Muze.toast('Draw your line first');
-  st.done = true; Muze.save(GAME, st); render(); Muze.toast('Kept');
+  st.done = true; Muze.save(GAME, st); render(); Muze.toast('Kept'); Muze.addToGallery(GAME);
 };
 document.getElementById('save').onclick = async () => {
   if (!st.img) return Muze.toast('Draw your line first');

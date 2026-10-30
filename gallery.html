@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Gallery · The Muze</title>
+<meta name="description" content="Everything you made today on The Muze, as one picture you can copy and share.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,400&family=Nunito:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="muze.css">
+<style>
+/* Layout: day tabs, share buttons, a masonry wall of today's finished pieces, then what's still to make. */
+.days{display:flex;gap:6px;flex-wrap:wrap}
+.days .btn{min-height:34px;padding:4px 14px;font-size:14px}
+.wall{columns:2 280px;column-gap:14px}
+.piece{break-inside:avoid;margin:0 0 14px;background:var(--surface);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.piece img{width:100%;height:auto;display:block;border-radius:8px;background:#fff}
+.piece a{display:flex;justify-content:space-between;align-items:center;color:inherit;text-decoration:none;font:700 16px var(--display);padding:0 4px}
+.piece a span{font:600 13px var(--body);color:var(--muted)}
+.piece a:hover span{color:var(--ink)}
+.empty{background:var(--surface);border-radius:16px;padding:28px 20px;text-align:center;color:var(--muted)}
+.empty b{display:block;font:700 20px var(--display);color:var(--ink);margin-bottom:4px}
+.todo{display:flex;flex-wrap:wrap;gap:8px}
+.todo a{font:700 14px var(--body);color:var(--ink);text-decoration:none;background:var(--surface);border:2px dashed var(--line);border-radius:999px;padding:6px 14px}
+.todo a:hover{border-color:var(--ink)}
+.sect{font:700 12px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:6px 0 -4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="days" id="days"></div>
+  <div class="tools" id="share">
+    <button class="btn primary" id="copyImg">Copy image</button>
+    <button class="btn" id="shareBtn" hidden>Share…</button>
+    <button class="btn" id="saveImg">Save image</button>
+    <button class="btn ghost" id="copyText">Copy as text</button>
+  </div>
+  <div class="wall" id="wall"></div>
+  <div class="sect" id="todoHead">Still to make today</div>
+  <div class="todo" id="todo"></div>
+  <p class="foot">Pieces land here when you press a make's finish button · everything stays on this device for three days</p>
+</div>
+<script src="muze.js"></script>
+<script>
+Muze.header({ title: 'Today\'s gallery', another: false });
+const SITE = 'thecosmickitchen.github.io/The-Muze';
+const all = Muze.gallery();
+const dates = [...new Set([Muze.today, ...Object.keys(all)])].sort().reverse();
+let day = Muze.today;
+
+const fmt = d => {
+  const dt = new Date(d + 'T12:00');
+  if (d === Muze.today) return 'Today';
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  return dt.toDateString() === y.toDateString() ? 'Yesterday' : dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+};
+const dayNum = d => Math.round((new Date(d + 'T00:00') - new Date(2026, 9, 28)) / 864e5) + 1;
+const pieces = () => Muze.GAMES.filter(g => all[day] && all[day][g.id]).map(g => ({ ...g, ...all[day][g.id] }));
+
+function render() {
+  const days = document.getElementById('days');
+  days.hidden = dates.length < 2; days.innerHTML = '';
+  dates.forEach(d => {
+    const b = document.createElement('button'); b.className = 'btn'; b.textContent = fmt(d);
+    b.setAttribute('aria-pressed', d === day); b.onclick = () => { day = d; render(); };
+    days.append(b);
+  });
+  document.querySelector('h1').textContent = day === Muze.today ? 'Today\'s gallery' : `Gallery · ${fmt(day)}`;
+  const list = pieces(), wall = document.getElementById('wall');
+  wall.innerHTML = '';
+  document.getElementById('share').hidden = !list.length;
+  if (!list.length) {
+    wall.innerHTML = `<div class="empty"><b>Nothing here yet</b>Finish something today and it lands on this wall.</div>`;
+    wall.style.columns = 'auto';
+  } else wall.style.columns = '';
+  list.forEach(p => {
+    const el = document.createElement('figure'); el.className = 'piece';
+    el.innerHTML = `<img alt="${p.title}" src="${p.img}"><a href="${p.page}">${p.title}<span>Open →</span></a>`;
+    wall.append(el);
+  });
+  const todo = Muze.GAMES.filter(g => !list.some(p => p.id === g.id));
+  const showTodo = day === Muze.today && todo.length > 0;
+  document.getElementById('todoHead').hidden = document.getElementById('todo').hidden = !showTodo;
+  document.getElementById('todo').innerHTML = todo.map(g => `<a href="${g.page}">${g.title}</a>`).join('');
+}
+
+// One picture of the whole day: a title band, two masonry columns, and the site address.
+const load = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
+async function poster() {
+  await document.fonts.ready;
+  const list = pieces(), imgs = await Promise.all(list.map(p => load(p.img)));
+  const W = 1200, M = 40, G = 24, head = 150, foot = 90, cols = list.length === 1 ? 1 : 2;
+  const cw = (W - M * 2 - G * (cols - 1)) / cols, cap = 40;
+  const h = [0, 0], spots = [];
+  imgs.forEach((im, i) => {
+    const c = cols === 1 ? 0 : (h[0] <= h[1] ? 0 : 1), ih = im.height * cw / im.width;
+    spots.push({ x: M + c * (cw + G), y: head + h[c], ih, im, title: list[i].title });
+    h[c] += ih + cap + G;
+  });
+  const H = head + Math.max(...h.slice(0, cols)) - G + foot;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#E9DCC3'; g.fillRect(0, 0, W, H);
+  // Gingham, like the site.
+  g.fillStyle = 'rgba(200,70,46,.09)';
+  for (let x = 0; x < W; x += 44) g.fillRect(x, 0, 22, H);
+  for (let y = 0; y < H; y += 44) g.fillRect(0, y, W, 22);
+  g.textAlign = 'center'; g.fillStyle = '#2B211B';
+  g.font = '700 54px Fraunces, Georgia, serif'; g.fillText('The Muze', W / 2, 78);
+  g.font = '700 22px Nunito, sans-serif'; g.fillStyle = '#7A6A5D';
+  const dt = new Date(day + 'T12:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  g.fillText(`Day ${dayNum(day)} · ${dt} · ${list.length} thing${list.length === 1 ? '' : 's'} made`, W / 2, 116);
+  spots.forEach(s => {
+    g.save(); g.shadowColor = 'rgba(60,40,20,.25)'; g.shadowBlur = 14; g.shadowOffsetY = 4;
+    g.fillStyle = '#FBF6EC'; g.fillRect(s.x - 8, s.y - 8, cw + 16, s.ih + cap + 8); g.restore();
+    g.drawImage(s.im, s.x, s.y, cw, s.ih);
+    g.fillStyle = '#2B211B'; g.font = '700 20px Nunito, sans-serif'; g.textAlign = 'left';
+    g.fillText(s.title, s.x + 2, s.y + s.ih + 27);
+  });
+  g.textAlign = 'center'; g.fillStyle = '#7A6A5D'; g.font = '700 20px Nunito, sans-serif';
+  g.fillText(`Make your own at ${SITE}`, W / 2, H - 36);
+  return cv;
+}
+const toBlob = cv => new Promise(res => cv.toBlob(res, 'image/png'));
+const shareText = () => `The Muze · Day ${dayNum(day)}: I made ${pieces().map(p => p.title).join(', ')}.\nhttps://${SITE}/`;
+
+// If the browser won't copy images, save the picture instead so the click still gets you something.
+const fallback = async () => { await savePoster(); Muze.toast('Couldn\'t copy here, so it\'s saved as a picture'); };
+document.getElementById('copyImg').onclick = async () => {
+  if (!window.ClipboardItem || !navigator.clipboard?.write) return fallback();
+  try {
+    // Pass the blob as a promise so Safari keeps the click's permission while the picture is drawn.
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': poster().then(toBlob) })]);
+    Muze.toast('Copied! Paste it anywhere');
+  } catch (e) { fallback(); }
+};
+document.getElementById('saveImg').onclick = () => savePoster();
+async function savePoster() {
+  const cv = await poster();
+  const a = document.createElement('a'); a.href = URL.createObjectURL(await toBlob(cv)); a.download = `the-muze-${day}.png`;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+};
+document.getElementById('copyText').onclick = () => Muze.copy(shareText());
+// Phones: the system share sheet with the picture attached.
+const probe = new File([new Blob()], 'x.png', { type: 'image/png' });
+if (navigator.canShare && navigator.canShare({ files: [probe] })) {
+  const sb = document.getElementById('shareBtn'); sb.hidden = false;
+  sb.onclick = async () => {
+    const file = new File([await toBlob(await poster())], `the-muze-${day}.png`, { type: 'image/png' });
+    try { await navigator.share({ files: [file], text: shareText() }); } catch (e) {}
+  };
+}
+render();
+</script>
+</body>
+</html>

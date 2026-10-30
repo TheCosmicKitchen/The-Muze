@@ -27,6 +27,12 @@ a.card:focus-visible{outline:2.5px solid var(--f1);outline-offset:2px}
 .pill{font:600 12px var(--display);letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:var(--felt);color:var(--muted);white-space:nowrap}
 .pill.done{background:var(--ok);color:var(--surface)}
 .sect h3{font:600 15px var(--display);letter-spacing:.12em;text-transform:uppercase;margin:6px 0 -6px;color:var(--muted)}
+a.gal{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--ink);color:var(--bg);border-radius:18px;padding:14px 18px;text-decoration:none}
+a.gal b{display:block;font:700 20px var(--display)}
+a.gal span span{font-size:14px;opacity:.8}
+a.gal .go{font:700 15px var(--body);white-space:nowrap}
+a.gal:hover{opacity:.92}
+a.gal:focus-visible{outline:2.5px solid var(--f1);outline-offset:2px}
 .shelf{display:flex;flex-direction:column;gap:6px}
 .shelf h3{font:600 15px var(--display);letter-spacing:.12em;text-transform:uppercase;margin:6px 0 0;color:var(--muted)}
 .shelf blockquote{margin:0;background:var(--surface);border-radius:14px;padding:10px 14px;font:16px/1.45 var(--serif);white-space:pre-wrap}
@@ -42,6 +48,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px}
     <div class="date" id="date"></div>
   </div>
   <p class="tag">Something small to make every day, free. No wrong answers, no scores.</p>
+  <a class="gal" href="gallery.html"><span><b>Today's gallery</b><span id="galCount">Finish something and it lands here, ready to share.</span></span><span class="go">View →</span></a>
   <div class="sect"><h3>Words</h3></div>
   <div class="cards">
     <a class="card" href="blackout.html">
@@ -196,6 +203,10 @@ Object.keys(started).forEach(g => {
 
 // Recent finished text pieces, newest first.
 const NAMES = { blackout: 'Blackout', haiku: 'Haiku Hunt', cutup: 'Cut-up', fridge: 'Fridge', sixwords: 'Six Words', palette: 'Palette Walk', strip: 'Speech Bubbles' };
+{
+  const made = Object.keys((get('muze-gallery') || {})[iso] || {}).length;
+  if (made) document.getElementById('galCount').textContent = `${made} piece${made === 1 ? '' : 's'} so far. Copy them all as one picture.`;
+}
 const shelf = get('muze-shelf') || {}, shelfEl = document.getElementById('shelf');
 Object.keys(shelf).sort().reverse().slice(0, 5).forEach(day => {
   Object.entries(shelf[day]).forEach(([g, text]) => {
