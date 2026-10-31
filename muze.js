@@ -203,14 +203,34 @@ const Muze = (() => {
     return c;
   }
 
-  // Rough English syllable count; good enough for a guess the player can correct.
-  function syllables(word) {
+  // English syllable rules, for words the dictionary list doesn't cover (and snipped parts of words).
+  function guessSyllables(word) {
     let w = word.toLowerCase().replace(/[^a-z]/g, '');
     if (!w) return 0;
-    if (w.length <= 3) return 1;
-    w = w.replace(/(?:[^laeiouy]es|[^laeiouy]ed|[^laeiouy]e)$/, '').replace(/^y/, '');
-    const m = w.match(/[aeiouy]{1,2}/g);
-    return m ? m.length : 1;
+    if (!/[aeiouy]/.test(w)) return 1;
+    // Silent endings: time, tales, walked. Spoken after a sound that needs them: table, cases, wanted.
+    const stem = w
+      .replace(/([aeiouy][^aeiouy]+)e(ly|ful|less|ment|ness)$/, '$1$2')
+      .replace(/([^aeiouyl])le$/, '$1ul').replace(/([^aeiouyl])les$/, '$1uls').replace(/([^aeiouyl])led$/, '$1uld')
+      .replace(/([^aeiouysxzcgh]|[^cs]h)es$/, '$1').replace(/([^aeiouytd])ed$/, '$1')
+      .replace(/([aeiouy][^aeiouy]+)e$/, '$1');
+    let n = (stem.match(/[aeiouy]+/g) || []).length;
+    // Vowels side by side that are said separately: going, idea, usual, lion, quiet.
+    n += (stem.match(/[aeouy]ing|[^qg]ua|[^tcsg]ia|[^tcsgx]io|[^tcsgql]iu|[^tcsgfr]ient?|[^q]ue[tnl]|eo[^u]/g) || []).length;
+    // Silent e in the middle of compounds: something, sometimes, everyone.
+    if (/^(some|every|home|fore|there|where|here|care|safe|whole|else|like|more)[a-z]{3,}/.test(w) && !/^(there|here|where)(?:d|s)$/.test(w)) n -= 1;
+    return Math.max(1, n);
+  }
+  // Exact counts from data/syllables.js when the page loads it, otherwise the rules above.
+  function syllables(word) {
+    const w = word.toLowerCase().replace(/’/g, "'").replace(/^[^a-z]+|[^a-z]+$/g, '');
+    if (/[-—]/.test(w)) return w.split(/[-—]+/).reduce((n, p) => n + syllables(p), 0);
+    const table = window.SYLLABLES || {};
+    if (w in table) return table[w];
+    const poss = w.match(/^(.+)'s$/);
+    if (poss) return syllables(poss[1]) + (/(s|x|z|ch|sh|ce|ge|se|ze)$/.test(poss[1]) ? 1 : 0);
+    if (/[^aeiou]n't$/.test(w)) return guessSyllables(w.slice(0, -3)) + 1;
+    return guessSyllables(w);
   }
 
   const PALETTES = [
@@ -238,5 +258,5 @@ const Muze = (() => {
 
   return { today, daily, seed, day, rng, pick, shuffle, load, save, keep, header, toast, copy, download, tag, css,
     GAMES, gallery, addToGallery,
-    sketch, card, syllables, PALETTES, SUBJECTS };
+    sketch, card, syllables, guessSyllables, PALETTES, SUBJECTS };
 })();

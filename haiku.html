@@ -15,7 +15,7 @@
 .ln.cur{border-color:var(--ink)}
 .ln .n{font:600 15px var(--display);color:var(--muted)}
 .ln.ok .n{color:var(--ok)}
-.ln.over .n{color:var(--f0)}
+.ln.over .n{color:var(--f2)}
 .chips{display:flex;flex-wrap:wrap;gap:4px 6px;font:18px/1.3 var(--serif)}
 .chip{display:inline-flex;align-items:baseline;gap:3px}
 .chip .t{cursor:pointer}
@@ -53,7 +53,7 @@
     <button class="btn" id="save" hidden>Save image</button>
   </div>
   <div class="paper"><div class="src" id="src"></div><div class="text" id="text"></div></div>
-  <p class="foot">Pick words in any order. Use ✂ Snip to take just part of a word. Tap a word in your haiku to take it out. The syllable counter guesses: tap a word's number to correct it.</p>
+  <p class="foot">Pick words in any order. Use ✂ Snip to take just part of a word. Tap a word in your haiku to take it out. The 5-7-5 count is a guide, not a rule, and it can be wrong: tap a word's number to correct it.</p>
 </div>
 <div class="snip" id="snipper" hidden>
   <div class="k">Tap the first and last letter to keep</div>
@@ -61,6 +61,7 @@
   <div class="tools"><button class="btn primary" id="snipAdd" disabled>Add</button><button class="btn" id="snipCancel">Cancel</button></div>
 </div>
 <script src="data/pages.js"></script>
+<script src="data/syllables.js"></script>
 <script src="muze.js"></script>
 <script>
 Muze.header({ title: 'Haiku Hunt', another: 'Another page' });
@@ -71,7 +72,7 @@ const order = Muze.shuffle(PAGES.map((_, i) => i), Muze.rng('muze-blackout-order
 const pageIdx = Muze.daily ? order[(Muze.day - 1 + 190) % order.length] : Math.floor(Muze.rng(Muze.seed + 'haiku')() * PAGES.length);
 const page = PAGES[pageIdx], book = BOOKS[page.b];
 document.getElementById('prompt').innerHTML =
-  `<span class="k">Hunt through</span><span class="v">${book.t}</span><span class="s">${book.a} · Pick words, or parts of words, in any order to make three lines of 5, 7 and 5 syllables.</span>`;
+  `<span class="k">Hunt through</span><span class="v">${book.t}</span><span class="s">${book.a} · Pick words, or parts of words, in any order. Aim for lines of 5, 7 and 5 syllables, or finish whenever it feels right.</span>`;
 document.getElementById('src').textContent = `from ${book.t}, ${book.a}`;
 
 const textEl = document.getElementById('text'), words = [];
@@ -95,7 +96,7 @@ const letters = i => Array.from(clean(words[i].textContent));
 const piece = p => typeof p === 'number' ? clean(words[p].textContent) : letters(p.i).slice(p.a, p.b + 1).join('');
 const syl = p => st.fix[key(p)] ?? Muze.syllables(piece(p));
 const count = l => st.lines[l].reduce((n, p) => n + syl(p), 0);
-const text = () => st.lines.map(l => l.map(piece).join(' ')).join('\n');
+const text = () => st.lines.filter(l => l.length).map(l => l.map(piece).join(' ')).join('\n');
 const findPick = k => { for (const l of st.lines) { const j = l.findIndex(p => key(p) === k); if (j >= 0) return [l, j]; } return null; };
 function add(p) {
   if (findPick(key(p))) return Muze.toast('Already in your haiku');
@@ -125,7 +126,8 @@ function render() {
   });
   const all = st.lines.flat(), whole = new Set(all.filter(p => typeof p === 'number')), part = new Set(all.map(wi));
   words.forEach((w, i) => { w.classList.toggle('used', whole.has(i)); w.classList.toggle('part', part.has(i) && !whole.has(i)); });
-  const ok = st.lines.every((_, li) => count(li) === TARGET[li]);
+  // 5-7-5 is a target, not a rule: any words at all can be finished.
+  const ok = all.length > 0;
   const done = document.getElementById('done');
   done.disabled = !ok; done.textContent = st.done && ok ? 'Finished ✓' : 'Finish';
   document.getElementById('copy').hidden = document.getElementById('save').hidden = !(st.done && ok);
