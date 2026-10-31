@@ -10,6 +10,8 @@
 <link rel="stylesheet" href="muze.css">
 <style>
 /* Layout: day tabs, share buttons, a masonry wall of today's finished pieces, then what's still to make. */
+.hall{border-radius:12px;overflow:hidden;box-shadow:0 1px 0 var(--paper-edge),0 10px 30px -18px rgba(0,0,0,.45);background:#EFE6D6}
+#hall{display:block;width:100%;height:auto}
 .days{display:flex;gap:6px;flex-wrap:wrap}
 .days .btn{min-height:34px;padding:4px 14px;font-size:14px}
 .wall{columns:2 280px;column-gap:14px}
@@ -29,18 +31,21 @@
 <body>
 <div class="wrap">
   <div class="days" id="days"></div>
+  <div class="hall"><canvas id="hall" width="1200" height="640" aria-label="A little museum with your pieces on the wall and visitors admiring them. Click a piece to open it."></canvas></div>
   <div class="tools" id="share">
     <button class="btn primary" id="copyImg">Copy image</button>
     <button class="btn" id="shareBtn" hidden>Share…</button>
     <button class="btn" id="saveImg">Save image</button>
     <button class="btn ghost" id="copyText">Copy as text</button>
   </div>
+  <div class="sect" id="upHead">Up close</div>
   <div class="wall" id="wall"></div>
   <div class="sect" id="todoHead">Still to make today</div>
   <div class="todo" id="todo"></div>
   <p class="foot">Pieces land here when you press a make's finish button · everything stays on this device for three days</p>
 </div>
 <script src="muze.js"></script>
+<script src="folk.js"></script>
 <script>
 Muze.header({ title: 'Today\'s gallery', another: false });
 const SITE = 'thecosmickitchen.github.io/The-Muze';
@@ -68,7 +73,8 @@ function render() {
   document.querySelector('h1').textContent = day === Muze.today ? 'Today\'s gallery' : `Gallery · ${fmt(day)}`;
   const list = pieces(), wall = document.getElementById('wall');
   wall.innerHTML = '';
-  document.getElementById('share').hidden = !list.length;
+  document.getElementById('share').hidden = document.getElementById('upHead').hidden = !list.length;
+  Hall.show(list);
   if (!list.length) {
     wall.innerHTML = `<div class="empty"><b>Nothing here yet</b>Finish something today and it lands on this wall.</div>`;
     wall.style.columns = 'auto';
@@ -150,6 +156,171 @@ if (navigator.canShare && navigator.canShare({ files: [probe] })) {
     try { await navigator.share({ files: [file], text: shareText() }); } catch (e) {}
   };
 }
+// The little museum: your pieces framed on the wall, and visitors who come to look.
+const SHELF = (() => { try { return JSON.parse(localStorage.getItem('muze-shelf')) || {}; } catch (e) { return {}; } })();
+const Hall = (() => {
+  const cv = document.getElementById('hall'), g = cv.getContext('2d'), W = cv.width, H = cv.height, FLOOR = 470, SIZE = 3;
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const POSES = ['look', 'look', 'chin', 'chin', 'point', 'photo', 'clap'];
+  const SAY = { look: ['Hmm.', 'Interesting.', 'Ooh.', 'So quiet.', 'I see.'], chin: ['But why?', 'Is it upside down?', 'What does it mean?', 'Bold.', 'Very... brave.'],
+    point: ['Look at that!', 'The brushwork!', 'See this bit?', 'Genius.'], photo: ['For my wall.', 'Gorgeous.'], clap: ['Bravo!', 'Love it!', 'Masterpiece!', 'Wow!'] };
+  const EMPTY = ['Is it invisible?', 'Very minimal.', 'Where is everything?', 'Bold choice.', 'I don\'t get it.'];
+  const room = document.createElement('canvas'); room.width = W; room.height = H;
+  let frames = [], folk = [], hearts = [], flashes = [], last = 0, run = 0;
+  const rand = (a, b) => a + Math.random() * (b - a);
+
+  // Hang the pieces in up to three rows, each row scaled to fit the wall.
+  function hang(items) {
+    const n = items.length, rows = n <= 4 ? 1 : n <= 9 ? 2 : 3, top = 30, room = FLOOR - 40 - top, gap = 36, cap = 46;
+    const rh = room / rows - cap, out = [];
+    for (let i = 0; i < rows; i++) {
+      const row = items.slice(Math.round(i * n / rows), Math.round((i + 1) * n / rows));
+      const sized = row.map(p => ({ p, w: Math.min(rh * p.im.width / p.im.height, 330), h: 0 }));
+      sized.forEach(o => { o.h = o.w * o.p.im.height / o.p.im.width; });
+      const fit = Math.min(1, (W - 120 - gap * (row.length - 1)) / sized.reduce((t, o) => t + o.w, 0));
+      const total = sized.reduce((t, o) => t + o.w * fit, 0) + gap * (row.length - 1);
+      let x = (W - total) / 2;
+      sized.forEach(o => {
+        const w = o.w * fit, h = o.h * fit, y = top + i * (rh + cap) + (rh - h) / 2;
+        out.push({ ...o.p, x, y, w, h }); x += w + gap;
+      });
+    }
+    return out;
+  }
+  function paintRoom() {
+    const c = room.getContext('2d');
+    const wall = c.createLinearGradient(0, 0, 0, FLOOR); wall.addColorStop(0, '#F4ECDD'); wall.addColorStop(1, '#E7DBC6');
+    c.fillStyle = wall; c.fillRect(0, 0, W, FLOOR);
+    c.fillStyle = '#D8C8AD'; c.fillRect(0, FLOOR - 26, W, 26); c.fillStyle = '#B79F7C'; c.fillRect(0, FLOOR - 28, W, 3); c.fillStyle = '#8A6B4C'; c.fillRect(0, FLOOR - 8, W, 8);
+    const floor = c.createLinearGradient(0, FLOOR, 0, H); floor.addColorStop(0, '#B98A5E'); floor.addColorStop(1, '#94683F');
+    c.fillStyle = floor; c.fillRect(0, FLOOR, W, H - FLOOR);
+    c.strokeStyle = 'rgba(60,35,15,.2)'; c.lineWidth = 2;
+    for (let y = FLOOR + 22; y < H; y += 34) { c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke(); }
+    for (let x = -300; x < W + 300; x += 120) { c.beginPath(); c.moveTo(W / 2 + (x - W / 2) * .72, FLOOR); c.lineTo(W / 2 + (x - W / 2) * 1.3, H); c.stroke(); }
+    frames.forEach(f => {
+      const glow = c.createRadialGradient(f.x + f.w / 2, f.y - 14, 8, f.x + f.w / 2, f.y + f.h / 2, Math.max(f.w, f.h) * .95);
+      glow.addColorStop(0, 'rgba(255,244,205,.75)'); glow.addColorStop(1, 'rgba(255,244,205,0)');
+      c.fillStyle = glow; c.fillRect(f.x - f.w, f.y - 40, f.w * 3, f.h * 2);
+      c.save(); c.shadowColor = 'rgba(50,30,10,.4)'; c.shadowBlur = 14; c.shadowOffsetY = 6; c.fillStyle = '#B98B3A'; c.fillRect(f.x - 10, f.y - 10, f.w + 20, f.h + 20); c.restore();
+      c.strokeStyle = '#E2BC6A'; c.lineWidth = 2; c.strokeRect(f.x - 7, f.y - 7, f.w + 14, f.h + 14);
+      c.fillStyle = '#FFFDF8'; c.fillRect(f.x - 4, f.y - 4, f.w + 8, f.h + 8);
+      c.drawImage(f.im, f.x, f.y, f.w, f.h);
+      c.font = '700 13px Nunito, sans-serif'; const tw = c.measureText(f.title).width + 14, px = f.x + f.w / 2 - tw / 2, py = f.y + f.h + 13;
+      c.fillStyle = '#FFFDF8'; c.fillRect(px, py, tw, 18); c.fillStyle = '#5A4A3C'; c.textAlign = 'center'; c.fillText(f.title, f.x + f.w / 2, py + 14);
+    });
+    if (!frames.length) {
+      c.setLineDash([12, 9]); c.strokeStyle = '#B79F7C'; c.lineWidth = 4; c.strokeRect(W / 2 - 150, 90, 300, 220); c.setLineDash([]);
+      c.fillStyle = '#FFFDF8'; c.fillRect(W / 2 - 112, 330, 224, 62);
+      c.fillStyle = '#5A4A3C'; c.textAlign = 'center'; c.font = '700 20px Fraunces, Georgia, serif'; c.fillText('Exhibition opening soon', W / 2, 358);
+      c.font = '600 14px Nunito, sans-serif'; c.fillText('Finish something to fill this wall', W / 2, 379);
+    }
+    // Rope barrier along the wall.
+    c.strokeStyle = '#9C2F2B'; c.lineWidth = 4;
+    const posts = []; for (let x = 60; x <= W - 60; x += (W - 120) / 6) posts.push(x);
+    posts.slice(1).forEach((x, i) => { c.beginPath(); c.moveTo(posts[i], FLOOR + 2); c.quadraticCurveTo((posts[i] + x) / 2, FLOOR + 22, x, FLOOR + 2); c.stroke(); });
+    posts.forEach(x => { c.fillStyle = '#C9A24E'; c.fillRect(x - 3, FLOOR - 2, 6, 30); c.beginPath(); c.arc(x, FLOOR - 4, 6, 0, 7); c.fill(); c.beginPath(); c.ellipse(x, FLOOR + 28, 11, 4, 0, 0, 7); c.fill(); });
+  }
+  function make(i) {
+    const kid = i % 5 === 4, dress = Math.random() < .35;
+    return { x: rand(60, W - 60), y: rand(FLOOR + 50, H - 18), dir: 1, wait: 0, p: .5, phase: rand(0, 6), shirt: Folk.SHIRTS[i % Folk.SHIRTS.length], skin: Folk.SKINS[Math.floor(Math.random() * Folk.SKINS.length)],
+      hair: Folk.HAIR[Math.floor(Math.random() * Folk.HAIR.length)], hat: Math.random() < .2, dress, size: kid ? SIZE * .72 : SIZE * rand(.92, 1.06), pace: kid ? rand(1.2, 1.5) : rand(.75, 1.1),
+      tx: 0, ty: 0, work: null, left: rand(0, 2.5), say: '', sayIn: 0, sayLeft: 0, piece: null, tick: 1 };
+  }
+  function nextStop(f) {
+    const crowd = p => folk.filter(o => o !== f && o.piece === p).length;
+    const options = frames.length ? [...frames].sort(() => Math.random() - .5).sort((a, b) => crowd(a) - crowd(b)) : [null];
+    const p = options[0]; f.piece = p;
+    const cx = p ? p.x + p.w / 2 : W / 2 + rand(-120, 120);
+    f.tx = Math.max(40, Math.min(W - 40, cx + rand(-70, 70))); f.ty = rand(FLOOR + 50, H - 18); f.work = null; f.moving = true;
+  }
+  function quote(id) {
+    const text = SHELF[day]?.[id]; if (!text) return null;
+    const lines = String(text).split('\n').map(l => l.trim()).filter(Boolean); if (!lines.length) return null;
+    const words = lines[Math.floor(Math.random() * lines.length)].split(/\s+/), at = Math.floor(Math.random() * Math.max(1, words.length - 5));
+    let out = words.slice(at, at + 6).join(' ');
+    if (out.length > 40) out = out.slice(0, 39).trimEnd() + '…';
+    return `“${at ? '…' : ''}${out}${at + 6 < words.length && !out.endsWith('…') ? '…' : ''}”`;
+  }
+  function arrive(f) {
+    const p = f.piece, cx = p ? p.x + p.w / 2 : W / 2, kind = p ? POSES[Math.floor(Math.random() * POSES.length)] : 'chin';
+    f.moving = false; f.dir = cx >= f.x ? 1 : -1; f.work = { kind }; f.left = rand(3.5, 7); f.tick = 1;
+    f.say = (p ? SAY[kind] : EMPTY)[Math.floor(Math.random() * (p ? SAY[kind].length : EMPTY.length))];
+    f.sayIn = rand(.5, 1.6); f.sayLeft = Math.random() < .55 ? 2.2 : 0;
+    // In front of a word piece, they often read a bit of it out.
+    const line = p && Math.random() < .65 ? quote(p.id) : null;
+    if (line) { f.say = line; f.work = { kind: 'look' }; f.sayLeft = 3.6; f.left = Math.max(f.left, 5.5); }
+  }
+  function step(dt, now) {
+    for (const f of folk) {
+      if (f.guard) continue;
+      if (f.moving) {
+        const dx = f.tx - f.x, dy = f.ty - f.y, d = Math.hypot(dx, dy), v = 74 * f.pace * dt;
+        if (d <= v) { f.x = f.tx; f.y = f.ty; arrive(f); continue; }
+        f.x += dx / d * v; f.y += dy / d * v; if (Math.abs(dx) > 2) f.dir = dx > 0 ? 1 : -1;
+        continue;
+      }
+      f.left -= dt;
+      if (f.left <= 0) { f.sayLeft = 0; nextStop(f); continue; }
+      if (f.sayIn > 0) f.sayIn -= dt; else if (f.sayLeft > 0) f.sayLeft -= dt;
+      f.tick -= dt;
+      if (f.tick <= 0 && f.work) {
+        const k = f.work.kind;
+        f.tick = rand(1.2, 2.4);
+        if (k === 'photo' && f.piece) flashes.push({ p: f.piece, t: now });
+        if (k === 'clap' || (k === 'point' && Math.random() < .4)) hearts.push({ x: f.x + rand(-8, 8), y: f.y - 66, t: now });
+      }
+    }
+  }
+  function bubble(f) {
+    g.font = '700 21px Nunito, sans-serif'; g.textAlign = 'center';
+    const w = g.measureText(f.say).width + 26, h = 36, cx = Math.max(w / 2 + 6, Math.min(W - w / 2 - 6, f.x)), by = f.y - f.size * 26 - h - 4;
+    g.fillStyle = 'rgba(255,255,255,.96)'; g.strokeStyle = '#3A3230'; g.lineWidth = 2;
+    g.beginPath(); g.roundRect(cx - w / 2, by, w, h, 12); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(f.x - 7, by + h - 1); g.lineTo(f.x, by + h + 11); g.lineTo(f.x + 7, by + h - 1); g.fill();
+    g.beginPath(); g.moveTo(f.x - 7, by + h); g.lineTo(f.x, by + h + 11); g.lineTo(f.x + 7, by + h); g.stroke();
+    g.fillStyle = '#2B211B'; g.fillText(f.say, cx, by + 25);
+  }
+  function paint(now) {
+    g.drawImage(room, 0, 0);
+    flashes = flashes.filter(fl => now - fl.t < 320);
+    flashes.forEach(({ p, t }) => { g.fillStyle = `rgba(255,255,255,${.85 * (1 - (now - t) / 320)})`; g.fillRect(p.x - 10, p.y - 10, p.w + 20, p.h + 20); });
+    [...folk].sort((a, b) => a.y - b.y).forEach(f => {
+      g.fillStyle = 'rgba(40,20,5,.16)'; g.beginPath(); g.ellipse(f.x, f.y + 2, f.size * 6, f.size * 2, 0, 0, 7); g.fill();
+      g.save(); g.translate(f.x, f.y); g.scale(f.size, f.size); g.translate(-f.x, -f.y); Folk.person(g, f, now, false); g.restore();
+    });
+    hearts = hearts.filter(h => now - h.t < 1100);
+    hearts.forEach(h => { const p = (now - h.t) / 1100; g.fillStyle = `rgba(226,80,120,${1 - p})`; g.font = '700 26px Georgia, serif'; g.textAlign = 'center'; g.fillText('♥', h.x, h.y - p * 50); });
+    const said = []; folk.filter(f => f.say && f.sayIn <= 0 && f.sayLeft > 0).forEach(f => { if (said.some(o => Math.abs(o.x - f.x) < 300 && Math.abs(o.y - f.y) < 70)) return; said.push(f); bubble(f); });
+  }
+  function loop(now, id) {
+    if (id !== run) return;
+    if (now - last > 30) { step(Math.min(.1, (now - last) / 1000), now); last = now; paint(now); }
+    requestAnimationFrame(t => loop(t, id));
+  }
+  async function show(list) {
+    const id = ++run;
+    await document.fonts.ready;
+    const items = (await Promise.all(list.map(p => load(p.img).then(im => ({ ...p, im })).catch(() => null)))).filter(Boolean);
+    if (id !== run) return;
+    frames = hang(items); paintRoom(); hearts = []; flashes = [];
+    folk = Array.from({ length: Math.min(9, 3 + frames.length) }, (_, i) => make(i));
+    folk.forEach(f => { f.moving = false; f.left = rand(0, 2); });
+    // The guard by the door has seen it all.
+    folk.push({ guard: true, x: 44, y: FLOOR + 66, dir: 1, wait: 0, p: 1, phase: 1, shirt: '#2F3B52', skin: Folk.SKINS[1], hat: true, size: SIZE, work: { kind: 'look' }, say: '', sayIn: 0, sayLeft: 0 });
+    if (still) { folk.forEach(f => { if (!f.guard && frames.length) { f.piece = frames[Math.floor(Math.random() * frames.length)]; f.x = Math.max(40, Math.min(W - 40, f.piece.x + f.piece.w / 2 + rand(-60, 60))); f.work = { kind: 'look' }; } }); return paint(0); }
+    requestAnimationFrame(t => { last = t; loop(t, id); });
+  }
+  cv.addEventListener('click', e => {
+    const b = cv.getBoundingClientRect(), x = (e.clientX - b.left) * W / b.width, y = (e.clientY - b.top) * H / b.height;
+    const hit = frames.find(f => x > f.x - 10 && x < f.x + f.w + 10 && y > f.y - 10 && y < f.y + f.h + 10);
+    if (hit) location.href = hit.page;
+  });
+  cv.addEventListener('pointermove', e => {
+    const b = cv.getBoundingClientRect(), x = (e.clientX - b.left) * W / b.width, y = (e.clientY - b.top) * H / b.height;
+    cv.style.cursor = frames.some(f => x > f.x - 10 && x < f.x + f.w + 10 && y > f.y - 10 && y < f.y + f.h + 10) ? 'pointer' : 'default';
+  });
+  return { show };
+})();
 render();
 </script>
 </body>
