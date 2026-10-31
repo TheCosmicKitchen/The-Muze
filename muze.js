@@ -71,7 +71,7 @@ const Muze = (() => {
   const GAMES = [
     ['blackout', 'Blackout'], ['haiku', 'Haiku Hunt'], ['cutup', 'Cut-up'], ['fridge', 'Fridge'], ['sixwords', 'Six Words'],
     ['palette', 'Palette Walk'], ['strip', 'Speech Bubbles'], ['paint', 'Daub'], ['oneline', 'One Line'], ['shape', 'Shape Seed'], ['corpse', 'Exquisite Corpse'],
-    ['pixel', 'Pixel Postcard'], ['collage', 'Collage'],
+    ['pixel', 'Pixel Postcard'], ['collage', 'Collage'], ['vale', 'Vale'],
   ].map(([id, title]) => ({ id, title, page: `${id}.html` }));
 
   // Today's gallery: a small JPEG of each finished daily piece, keyed by date then game.

@@ -23,6 +23,7 @@ Pictures
 - `corpse.html` (Exquisite Corpse): head, body and legs on three days in a row. Each day shows only the strip below yesterday's fold; after the legs you see the whole creature.
 - `pixel.html` (Pixel Postcard): 16×16 pixels, four colours, one subject.
 - `collage.html`: three public-domain artworks a day. Cut pieces out with freehand, polygon, box or oval selection (zoom in up to 4× for fiddly bits), or take the whole picture. Then arrange them with drag handles, two-finger pinch, sliders, nudge buttons or the keyboard; flip, layer, copy, delete, or delete all. The cut-and-paste tools live in `cutpaste.js` and `cutpaste.css` so other pages can reuse them.
+- `vale.html`: a daily hexagonal valley builder with no score and no way to lose. Pick from three tiles and place them next to your land; neighbours change each other (a cottage by water grows a jetty, a windmill by a field turns the wheat gold). Sixteen discoveries fill a field guide that carries over between days, and everyone gets the same bag, season and wishes. Villagers (one per cottage or windmill) get on with their own jobs: chopping wood, hoeing fields, petting sheep, picking flowers and fetching water, then carrying the results home.
 
 Everything can be saved as a PNG. Every prompt is picked in the browser from a seed. The daily seed is the date, so everyone gets the same prompt. "Another one" uses a random seed, which appears in the URL hash so a prompt can be shared. Work is saved in `localStorage` on your device.
 

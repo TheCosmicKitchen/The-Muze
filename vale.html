@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Vale · The Muze</title>
+<meta name="description" content="Grow a little valley one tile at a time. No score and no way to lose: neighbours change each other.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,400&family=Nunito:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="muze.css">
+<style>
+/* Layout: prompt with today's wishes; the valley canvas; the tile tray; actions; the field guide of discoveries. */
+.wrap{max-width:900px}
+.valley{border-radius:12px;overflow:hidden;box-shadow:0 1px 0 var(--paper-edge),0 10px 30px -18px rgba(0,0,0,.45);background:#BFE0D8}
+#cv{display:block;width:100%;height:auto;touch-action:manipulation;cursor:pointer}
+.tray{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tile{display:flex;flex-direction:column;align-items:center;gap:0;width:92px;background:var(--surface);border:3px solid transparent;border-radius:14px;padding:4px;cursor:pointer;color:var(--ink);font:700 13px var(--body)}
+.tile canvas{width:76px;height:60px;display:block}
+.tile[aria-pressed="true"]{border-color:var(--ink)}
+.tile:focus-visible{outline:2.5px solid var(--f1);outline-offset:2px}
+.left{color:var(--muted);font-size:14px}
+.wish{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.wish span{font:700 13px var(--body);background:var(--felt);color:var(--muted);border-radius:999px;padding:3px 10px}
+.wish span.got{background:var(--ok);color:var(--surface)}
+details.guide{background:var(--surface);border-radius:16px;padding:10px 14px}
+details.guide summary{cursor:pointer;font:700 15px var(--display)}
+.book{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px 16px;margin-top:10px}
+.book div{font-size:14px;color:var(--muted)}
+.book b{display:block;color:var(--ink);font:700 15px var(--body)}
+.book div.off b{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="prompt" id="prompt"></div>
+  <div class="valley"><canvas id="cv" width="1200" height="760" aria-label="Your valley. Pick a tile, then click a spot next to your land."></canvas></div>
+  <div class="tray"><div class="tray" id="tray"></div><span class="gap" style="flex:1"></span><span class="left" id="left"></span></div>
+  <div class="tools">
+    <button class="btn" id="undo">Undo</button>
+    <span class="gap"></span>
+    <button class="btn primary" id="done">Call it home</button>
+    <button class="btn" id="save">Save image</button>
+  </div>
+  <details class="guide"><summary id="guideHead">Field guide</summary><div class="book" id="book"></div></details>
+  <p class="foot">There's no score and no wrong move. Gold rings show spots where something new would happen · your valley stays on this device</p>
+</div>
+<script src="muze.js"></script>
+<script>
+Muze.header({ title: 'Vale', another: 'Another valley' });
+const GAME = 'vale';
+
+// ---------- Tiles and today's bag ----------
+const TYPES = {
+  meadow: { name: 'Meadow', n: 6 }, tree: { name: 'Trees', n: 8 }, water: { name: 'Water', n: 7 }, field: { name: 'Field', n: 5 },
+  house: { name: 'Cottage', n: 6 }, path: { name: 'Lane', n: 4 }, hill: { name: 'Hill', n: 4 }, mill: { name: 'Windmill', n: 2 },
+};
+const r0 = Muze.rng(Muze.seed + 'vale');
+const bag = Muze.shuffle(Object.entries(TYPES).flatMap(([t, v]) => Array(v.n).fill(t)), r0);
+const SEASONS = {
+  spring: { sky: ['#CFEBE4', '#EAF3D8'], meadow: '#A9D37F', meadow2: '#BCDD8E', tree: '#5FA463', tree2: '#7DBB6C', water: '#7FC4D6', water2: '#A5DAE3', field: '#D9C57C', hill: '#9CBF76', side: '#8A6B4C', roof: '#C8664A', flower: '#F2A7C0' },
+  summer: { sky: ['#BFE3EE', '#F2EFCB'], meadow: '#96C869', meadow2: '#AAD577', tree: '#3F8A52', tree2: '#5CA25C', water: '#5DB3CE', water2: '#8BD0DE', field: '#E3C766', hill: '#88AE63', side: '#7D5F42', roof: '#B9503A', flower: '#FFD65C' },
+  autumn: { sky: ['#F3DDBB', '#F7EBD3'], meadow: '#C4BE6E', meadow2: '#D2C87B', tree: '#C9702F', tree2: '#E0A23A', water: '#6FA9B8', water2: '#9CC8CF', field: '#D8A94F', hill: '#A99A5C', side: '#7A5A3E', roof: '#8F3F2E', flower: '#E8833A' },
+  winter: { sky: ['#D5E2EE', '#EEF2F5'], meadow: '#EDF3F4', meadow2: '#F8FAFA', tree: '#3E6F62', tree2: '#5C8A7A', water: '#8EB9CF', water2: '#B7D5E2', field: '#DDE2DF', hill: '#D9E3E6', side: '#7E8A94', roof: '#7A4B3F', flower: '#FFFFFF' },
+};
+const seasonName = Muze.pick(Object.keys(SEASONS), r0), C = SEASONS[seasonName];
+
+// ---------- Neighbour interactions ----------
+const DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+const key = (q, r) => `${q},${r}`;
+const FINDS = {
+  thicket: ['Thicket', 'Three trees in a clump grow thick and tall.', 'Trees like company.'],
+  deepwood: ['Deep woods', 'Six trees together, and a deer moves in.', 'A really big clump of trees.'],
+  lake: ['Lake', 'Four waters join up and the ducks arrive.', 'Keep joining water to water.'],
+  jetty: ['Jetty', 'A cottage on the water builds a jetty and a boat.', 'A cottage wants a view of the water.'],
+  farm: ['Farmstead', 'A cottage beside a field brings a scarecrow and hay.', 'Someone has to mind the crops.'],
+  hamlet: ['Hamlet', 'Three cottages together raise a little chapel.', 'Neighbours, and more neighbours.'],
+  gold: ['Golden wheat', 'A windmill beside a field spins, and the wheat turns gold.', 'What does a windmill need to grind?'],
+  reeds: ['Water meadow', 'A field by the water grows reeds and herons.', 'Crops need watering.'],
+  flowers: ['Wildflowers', 'A meadow by the water blooms.', 'Flowers are thirsty too.'],
+  bees: ['Bee skeps', 'A meadow beside a field gets beehives.', 'Something has to visit the crops.'],
+  sheep: ['Sheep', 'A meadow beside a cottage fills with sheep.', 'A cottage and some open grass.'],
+  peak: ['Snowy peak', 'Three hills together rise into a snowy mountain.', 'Hills pile up.'],
+  falls: ['Waterfall', 'A hill above water pours a stream down its side.', 'Water runs downhill.'],
+  orchard: ['Orchard', 'Trees beside a field bear apples.', 'Trees near the farmland.'],
+  lanterns: ['Lanterns', 'A lane between two cottages gets lit up.', 'Connect one door to another.'],
+  bridge: ['Bridge', 'A lane with water on two sides becomes a bridge.', 'Build a lane across the water.'],
+};
+const WISHES = Object.keys(FINDS);
+const wishes = Muze.shuffle(WISHES, r0).slice(0, 3);
+
+// Works out what every tile becomes from its neighbours. Returns tile features and the set of finds.
+function study(map) {
+  const fx = new Map(), found = new Set();
+  const mark = (k, f) => { if (!fx.has(k)) fx.set(k, new Set()); fx.get(k).add(f); found.add(f); };
+  const near = (q, r) => DIRS.map(([a, b]) => map.get(key(q + a, r + b)));
+  const seen = new Set();
+  const group = (k0, t) => {
+    const out = [], todo = [k0]; seen.add(k0);
+    while (todo.length) {
+      const k = todo.pop(); out.push(k); const [q, r] = k.split(',').map(Number);
+      DIRS.forEach(([a, b]) => { const n = key(q + a, r + b); if (map.get(n) === t && !seen.has(n)) { seen.add(n); todo.push(n); } });
+    }
+    return out;
+  };
+  for (const [k, t] of map) {
+    const [q, r] = k.split(',').map(Number), ns = near(q, r), has = x => ns.includes(x);
+    if (!seen.has(k) && ['tree', 'water', 'house', 'hill'].includes(t)) {
+      const g = group(k, t);
+      if (t === 'tree' && g.length >= 3) g.forEach(x => mark(x, 'thicket'));
+      if (t === 'tree' && g.length >= 6) mark(g[0], 'deepwood');
+      if (t === 'water' && g.length >= 4) { mark(g[0], 'lake'); }
+      if (t === 'house' && g.length >= 3) mark(g[0], 'hamlet');
+      if (t === 'hill' && g.length >= 3) g.forEach(x => mark(x, 'peak'));
+    }
+    if (t === 'house' && has('water')) mark(k, 'jetty');
+    if (t === 'house' && has('field')) mark(k, 'farm');
+    if (t === 'mill' && has('field')) {
+      mark(k, 'gold');
+      DIRS.forEach(([a, b]) => { const n = key(q + a, r + b); if (map.get(n) === 'field') mark(n, 'gold'); });
+    }
+    if (t === 'field' && has('water')) mark(k, 'reeds');
+    if (t === 'meadow' && has('water')) mark(k, 'flowers');
+    if (t === 'meadow' && has('field')) mark(k, 'bees');
+    if (t === 'meadow' && has('house')) mark(k, 'sheep');
+    if (t === 'hill' && has('water')) mark(k, 'falls');
+    if (t === 'tree' && has('field')) mark(k, 'orchard');
+    if (t === 'path') {
+      if (ns.filter(x => x === 'house').length >= 2) mark(k, 'lanterns');
+      if ([0, 1, 2].some(i => ns[i] === 'water' && ns[i + 3] === 'water')) mark(k, 'bridge');
+    }
+  }
+  return { fx, found };
+}
+
+// ---------- State ----------
+const st = Muze.load(GAME) || { tiles: [[0, 0, 'meadow']], used: [], done: false };
+const BOOK = 'muze-vale-book';
+const book = (() => { try { return new Set(JSON.parse(localStorage.getItem(BOOK)) || []); } catch (e) { return new Set(); } })();
+const mapOf = list => new Map(list.map(([q, r, t]) => [key(q, r), t]));
+let map = mapOf(st.tiles), info = study(map), pick = 0, hover = null, hints = new Set();
+const hand = () => bag.map((t, i) => [t, i]).filter(([, i]) => !st.used.includes(i)).slice(0, 3);
+function slots() {
+  const out = new Map();
+  for (const [q, r] of st.tiles) DIRS.forEach(([a, b]) => { const k = key(q + a, r + b); if (!map.has(k)) out.set(k, [q + a, r + b]); });
+  return [...out.values()];
+}
+function refreshHints() {
+  hints = new Set();
+  const h = hand()[pick]; if (!h) return;
+  for (const [q, r] of slots()) {
+    const m = new Map(map); m.set(key(q, r), h[0]);
+    if ([...study(m).found].some(f => !info.found.has(f))) hints.add(key(q, r));
+  }
+}
+
+// ---------- Drawing ----------
+const cv = document.getElementById('cv'), g = cv.getContext('2d');
+const W = cv.width, H = cv.height, R = 58, SQ = 0.66, DEPTH = 13;
+const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const world = (q, r) => [R * 1.732 * (q + r / 2), R * 1.5 * SQ * r];
+const cam = { x: 0, y: 0, s: 1 };
+const spin = new Map();   // tile key -> time it was placed, for the little drop
+const hops = new Map();   // tile key -> time it should hop because a neighbour changed it
+let sparks = [];
+
+const sheepAt = (q, r, i) => { const n = Muze.rng(`${q}/${r}/sheep${i}`); return [(n() - .5) * R * 1.15, (n() - .5) * R * SQ * 1.1]; };
+const treesAt = (q, r, count) => { const n = Muze.rng(`${q}/${r}/trees`); return Array.from({ length: count }, () => [(n() - .5) * R * 1.15, (n() - .5) * R * SQ * 1.2]).sort((a, b) => a[1] - b[1]); };
+const treeCount = fx => fx?.has('thicket') ? 6 : 3;
+function hex(c, x, y, rr = R) {
+  c.beginPath();
+  for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + i * Math.PI / 3, px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr * SQ; i ? c.lineTo(px, py) : c.moveTo(px, py); }
+  c.closePath();
+}
+function base(c, x, y, t, fx) {
+  const top = { meadow: C.meadow, tree: C.meadow, water: C.water, field: fx?.has('gold') ? '#EFC94A' : C.field, house: C.meadow2, path: C.meadow, hill: C.meadow, mill: C.meadow2 }[t];
+  c.fillStyle = C.side; hex(c, x, y + DEPTH); c.fill();
+  c.fillRect(x - R * 0.866, y, R * 1.732, DEPTH);
+  c.fillStyle = top; hex(c, x, y, R + 0.6); c.fill();
+}
+function tree(c, x, y, s, pine, apples, rnd) {
+  c.fillStyle = '#6E4B30'; c.fillRect(x - 2 * s, y - 8 * s, 4 * s, 9 * s);
+  if (pine) {
+    [[0, 16], [-8, 13], [-16, 10]].forEach(([o, w], i) => {
+      c.fillStyle = i % 2 ? C.tree2 : C.tree; c.beginPath(); c.moveTo(x - w * s, y - 6 * s + o * s); c.lineTo(x + w * s, y - 6 * s + o * s); c.lineTo(x, y - 24 * s + o * s); c.fill();
+    });
+    if (seasonName === 'winter') { c.fillStyle = '#FFF'; c.beginPath(); c.moveTo(x - 5 * s, y - 28 * s); c.lineTo(x + 5 * s, y - 28 * s); c.lineTo(x, y - 40 * s); c.fill(); }
+    return;
+  }
+  c.fillStyle = C.tree; c.beginPath(); c.arc(x, y - 18 * s, 14 * s, 0, 7); c.fill();
+  c.fillStyle = C.tree2; c.beginPath(); c.arc(x - 4 * s, y - 22 * s, 8 * s, 0, 7); c.fill();
+  if (apples) { c.fillStyle = '#D23B2E'; for (let i = 0; i < 5; i++) { c.beginPath(); c.arc(x + (rnd() - .5) * 20 * s, y - 18 * s + (rnd() - .5) * 18 * s, 2.2 * s, 0, 7); c.fill(); } }
+}
+function house(c, x, y, rnd, now, fx) {
+  const w = 19, h = 15, wall = ['#F4E9D2', '#EAD8BE', '#F7EFE0'][Math.floor(rnd() * 3)];
+  c.fillStyle = wall; c.fillRect(x - w, y - h, w * 2, h);
+  c.fillStyle = C.roof; c.beginPath(); c.moveTo(x - w - 5, y - h); c.lineTo(x + w + 5, y - h); c.lineTo(x + w - 5, y - h - 17); c.lineTo(x - w + 5, y - h - 17); c.fill();
+  c.fillStyle = '#6E4B30'; c.fillRect(x - 3, y - 10, 7, 10);
+  c.fillStyle = '#F9CF5A'; c.fillRect(x - 14, y - 11, 6, 6); c.fillRect(x + 9, y - 11, 6, 6);
+  c.fillStyle = '#7B5B4A'; c.fillRect(x + 8, y - h - 22, 6, 11);
+  c.fillStyle = 'rgba(255,255,255,.55)';
+  for (let i = 0; i < 3; i++) { const p = ((now / 2400 + i / 3 + rnd()) % 1); c.beginPath(); c.arc(x + 11 + p * 8, y - h - 24 - p * 22, 2 + p * 3.5, 0, 7); c.fill(); }
+  if (fx?.has('hamlet')) {
+    c.fillStyle = '#F4E9D2'; c.fillRect(x - 40, y - 34, 14, 30);
+    c.fillStyle = C.roof; c.beginPath(); c.moveTo(x - 43, y - 34); c.lineTo(x - 23, y - 34); c.lineTo(x - 33, y - 58); c.fill();
+    c.strokeStyle = '#6E4B30'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(x - 33, y - 66); c.lineTo(x - 33, y - 56); c.moveTo(x - 36, y - 62); c.lineTo(x - 30, y - 62); c.stroke();
+  }
+}
+function details(c, q, r, x, y, t, fx, now) {
+  const rnd = Muze.rng(`${q}/${r}`), spot = (m = 0.55) => [x + (rnd() - .5) * R * 1.3 * m * 1.4, y + (rnd() - .5) * R * SQ * m * 1.5];
+  if (t === 'meadow') {
+    const blooms = fx?.has('flowers') ? 22 : 7;
+    for (let i = 0; i < blooms; i++) { const [a, b] = spot(1); c.fillStyle = fx?.has('flowers') && i % 2 ? C.flower : C.meadow2; c.beginPath(); c.arc(a, b, fx?.has('flowers') ? 2.4 : 3, 0, 7); c.fill(); }
+    if (fx?.has('flowers') && !still) for (let i = 0; i < 2; i++) {
+      const a = x + Math.sin(now / 1500 + i * 2.1) * 30 + Math.sin(now / 410 + i) * 5, b = y - 14 + Math.cos(now / 1100 + i * 3) * 13, w = 2 + Math.abs(Math.sin(now / 70 + i)) * 3.4;
+      c.fillStyle = i ? '#F6A23C' : '#F2F2FF'; c.beginPath(); c.ellipse(a - w * .6, b, w * .7, 3, 0, 0, 7); c.ellipse(a + w * .6, b, w * .7, 3, 0, 0, 7); c.fill();
+    }
+    if (fx?.has('bees')) { const [a, b] = spot(.7); c.fillStyle = '#D9B15B'; c.beginPath(); c.ellipse(a, b - 6, 7, 9, 0, 0, 7); c.fill(); c.strokeStyle = '#A97F36'; c.lineWidth = 1; for (let i = 0; i < 3; i++) { c.beginPath(); c.moveTo(a - 6, b - 9 + i * 4); c.lineTo(a + 6, b - 9 + i * 4); c.stroke(); } c.fillStyle = '#2B211B'; c.fillRect(a + Math.sin(now / 240) * 14, b - 14 + Math.cos(now / 170) * 6, 2, 2); }
+    if (fx?.has('sheep')) for (let i = 0; i < 3; i++) { const [ax, ay] = sheepAt(q, r, i), a = x + ax, b = y + ay, d = Math.sin(now / 1800 + i) * 3; c.fillStyle = '#FFF'; c.beginPath(); c.ellipse(a + d, b, 8, 5.5, 0, 0, 7); c.fill(); c.fillStyle = '#3A3230'; c.beginPath(); c.arc(a + d + 8, b - 2, 2.6, 0, 7); c.fill(); c.fillRect(a + d - 4, b + 4, 1.5, 3); c.fillRect(a + d + 3, b + 4, 1.5, 3); }
+  }
+  if (t === 'tree') {
+    const list = treesAt(q, r, treeCount(fx)).map(([a, b]) => [x + a, y + b]), hit = chopped.get(key(q, r));
+    list.forEach(([a, b], i) => {
+      let lean = still ? 0 : Math.sin(now / 1300 + a * .03 + b * .05) * .05;
+      if (hit && i === list.length - 1 && now > hit && now - hit < 300) lean += Math.sin((now - hit) / 22) * .13 * (1 - (now - hit) / 300);
+      c.save(); c.translate(a, b); c.transform(1, 0, lean, 1, 0, 0); c.translate(-a, -b);
+      tree(c, a, b, fx?.has('thicket') ? 1.15 : 1, fx?.has('orchard') ? false : rnd() < .6, fx?.has('orchard'), rnd);
+      c.restore();
+    });
+    if (fx?.has('deepwood')) { const a = x + 10, b = y + 14; c.fillStyle = '#A9743F'; c.beginPath(); c.ellipse(a, b, 9, 5, 0, 0, 7); c.fill(); c.fillRect(a - 7, b + 3, 2, 7); c.fillRect(a + 5, b + 3, 2, 7); c.fillRect(a + 7, b - 11, 4, 9); c.strokeStyle = '#6E4B30'; c.lineWidth = 1.4; c.beginPath(); c.moveTo(a + 9, b - 11); c.lineTo(a + 5, b - 17); c.moveTo(a + 9, b - 11); c.lineTo(a + 13, b - 17); c.stroke(); }
+  }
+  if (t === 'water') {
+    c.strokeStyle = C.water2; c.lineWidth = 2;
+    for (let i = 0; i < 4; i++) { const [a, b] = spot(1), d = still ? 0 : Math.sin(now / 900 + i * 2) * 5; c.beginPath(); c.moveTo(a - 9 + d, b); c.quadraticCurveTo(a + d, b - 3, a + 9 + d, b); c.stroke(); }
+    const leap = ((now / 8000) + rnd()) % 1;
+    if (!still && leap < .07) {
+      const [a, b] = spot(.8), p = leap / .07, h = Math.sin(p * Math.PI) * 20;
+      c.strokeStyle = 'rgba(255,255,255,.7)'; c.lineWidth = 1.5; c.beginPath(); c.ellipse(a, b, 5 + p * 12, 2 + p * 4, 0, 0, 7); c.stroke();
+      c.save(); c.translate(a - 11 + p * 22, b - h); c.rotate(-1 + p * 2); c.fillStyle = '#E98B4A'; c.beginPath(); c.ellipse(0, 0, 7, 3, 0, 0, 7); c.fill(); c.beginPath(); c.moveTo(-6, 0); c.lineTo(-12, -4); c.lineTo(-12, 4); c.fill(); c.restore();
+    }
+    if (fx?.has('lake')) for (let i = 0; i < 2; i++) { const a = x - 14 + i * 26 + (still ? 0 : Math.sin(now / 2600 + i) * 12), b = y - 6 + i * 12; c.fillStyle = '#FFF'; c.beginPath(); c.ellipse(a, b, 7, 4, 0, 0, 7); c.fill(); c.beginPath(); c.arc(a + 6, b - 4, 3, 0, 7); c.fill(); c.fillStyle = '#F0A030'; c.fillRect(a + 8.5, b - 4.5, 3, 1.6); }
+  }
+  if (t === 'field') {
+    c.save(); hex(c, x, y, R - 7); c.clip();
+    c.strokeStyle = fx?.has('gold') ? '#C99A22' : 'rgba(120,90,40,.4)'; c.lineWidth = 2.5;
+    for (let i = -6; i <= 6; i++) { c.beginPath(); c.moveTo(x + i * 13 - 30, y + 40); c.lineTo(x + i * 13 + 30, y - 40); c.stroke(); }
+    c.restore();
+    if (!still) {
+      c.save(); hex(c, x, y, R - 7); c.clip();
+      const sweep = ((now / 26 + x * .6) % 230) - 115;
+      c.fillStyle = fx?.has('gold') ? 'rgba(255,244,180,.38)' : 'rgba(255,255,255,.16)';
+      c.beginPath(); c.moveTo(x + sweep - 14, y + 45); c.lineTo(x + sweep + 18, y + 45); c.lineTo(x + sweep + 46, y - 45); c.lineTo(x + sweep + 14, y - 45); c.fill();
+      c.restore();
+    }
+    if (fx?.has('reeds')) { c.strokeStyle = '#4F8A5A'; c.lineWidth = 2; for (let i = 0; i < 9; i++) { const a = x - 38 + i * 9.5, b = y + 22 - Math.abs(i - 4) * 2.5; c.beginPath(); c.moveTo(a, b); c.lineTo(a + 2, b - 13); c.stroke(); c.fillStyle = '#7A4F2D'; c.fillRect(a, b - 16, 3, 5); } }
+  }
+  if (t === 'house') {
+    if (fx?.has('jetty')) { c.fillStyle = '#9B7650'; c.fillRect(x + 20, y + 16, 34, 6); const bob = still ? 0 : Math.sin(now / 750) * 1.8; c.fillStyle = '#FFF'; c.beginPath(); c.moveTo(x + 38, y + 30 + bob); c.lineTo(x + 62, y + 30 + bob); c.lineTo(x + 56, y + 37 + bob); c.lineTo(x + 43, y + 37 + bob); c.fill();
+      c.fillStyle = '#C8664A'; c.fillRect(x + 44, y + 9, 7, 8); c.fillStyle = '#EBC6A0'; c.beginPath(); c.arc(x + 47.5, y + 6, 3.4, 0, 7); c.fill();
+      c.strokeStyle = '#6E4B30'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(x + 50, y + 11); c.lineTo(x + 66, y + 1); c.stroke();
+      c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = .8; c.beginPath(); c.moveTo(x + 66, y + 1); c.lineTo(x + 67, y + 23 + bob); c.stroke(); }
+    if (fx?.has('farm')) { c.fillStyle = '#E6C766'; c.beginPath(); c.arc(x - 32, y + 16, 8, Math.PI, 0); c.fill(); c.strokeStyle = '#6E4B30'; c.lineWidth = 2; c.beginPath(); c.moveTo(x + 30, y + 22); c.lineTo(x + 30, y - 2); c.moveTo(x + 22, y + 6); c.lineTo(x + 38, y + 6); c.stroke(); c.fillStyle = '#C8664A'; c.beginPath(); c.arc(x + 30, y - 4, 4, 0, 7); c.fill(); }
+    const pile = stores.get(key(q, r)) || 0;
+    for (let i = 0; i < pile; i++) { const row = i < 3 ? 0 : 1, col = row ? i - 3 : i; c.fillStyle = '#8A5F3A'; c.beginPath(); c.arc(x - 34 + col * 7 + row * 3.5, y + 4 - row * 6, 3.6, 0, 7); c.fill(); c.fillStyle = '#D9B98C'; c.beginPath(); c.arc(x - 34 + col * 7 + row * 3.5, y + 4 - row * 6, 1.8, 0, 7); c.fill(); }
+    house(c, x, y + 9, rnd, now, fx);
+  }
+  if (t === 'path') {
+    const ns = DIRS.map(([a, b]) => [a, b, map.get(key(q + a, r + b))]), links = ns.filter(n => n[2] === 'path' || n[2] === 'house' || n[2] === 'mill' || (fx?.has('bridge') && n[2] === 'water'));
+    const draw = links.length ? links : [ns[0], ns[3]];
+    const road = fx?.has('bridge') ? '#A9825A' : '#E2CFA6';
+    if (fx?.has('bridge')) { c.fillStyle = C.water; hex(c, x, y, R); c.fill(); }
+    c.strokeStyle = road; c.lineWidth = 15; c.lineCap = 'round';
+    draw.forEach(([a, b]) => { const [dx, dy] = world(a, b); c.beginPath(); c.moveTo(x, y); c.lineTo(x + dx * .52, y + dy * .52); c.stroke(); });
+    c.lineCap = 'butt';
+    if (fx?.has('lanterns')) [[-20, -6], [20, 8]].forEach(([a, b], i) => {
+      c.strokeStyle = '#4A3A30'; c.lineWidth = 2; c.beginPath(); c.moveTo(x + a, y + b); c.lineTo(x + a, y + b - 22); c.stroke();
+      c.fillStyle = 'rgba(255,205,90,.35)'; c.beginPath(); c.arc(x + a, y + b - 24, 9 + (still ? 0 : Math.sin(now / 500 + i) * 1.5), 0, 7); c.fill();
+      c.fillStyle = '#FFD65C'; c.beginPath(); c.arc(x + a, y + b - 24, 3.5, 0, 7); c.fill();
+    });
+  }
+  if (t === 'hill') {
+    const tall = fx?.has('peak') ? 62 : 32;
+    c.fillStyle = C.hill; c.beginPath(); c.moveTo(x - 44, y + 18); c.quadraticCurveTo(x - 8, y - tall * 1.6, x + 44, y + 18); c.fill();
+    c.fillStyle = 'rgba(0,0,0,.08)'; c.beginPath(); c.moveTo(x + 2, y - tall * .7); c.quadraticCurveTo(x + 24, y - 6, x + 44, y + 18); c.lineTo(x + 6, y + 18); c.fill();
+    if (fx?.has('peak')) { c.fillStyle = '#FFF'; c.beginPath(); c.moveTo(x - 20, y - 18); c.quadraticCurveTo(x - 8, y - tall * .92, x + 13, y - 22); c.lineTo(x + 4, y - 15); c.lineTo(x - 5, y - 22); c.lineTo(x - 12, y - 14); c.fill(); }
+    if (fx?.has('falls')) { const fall = () => { c.beginPath(); c.moveTo(x + 3, y - tall * .45); c.bezierCurveTo(x + 14, y - 8, x - 3, y + 2, x + 8, y + 24); c.stroke(); };
+      c.strokeStyle = '#BFE6EF'; c.lineWidth = 6; fall();
+      c.strokeStyle = '#FFF'; c.lineWidth = 2.5; c.setLineDash([9, 8]); c.lineDashOffset = still ? 0 : -now / 28; fall(); c.setLineDash([]); c.lineDashOffset = 0;
+      c.fillStyle = 'rgba(255,255,255,.6)'; for (let i = 0; i < 3; i++) { const p = still ? .5 : ((now / 700 + i / 3) % 1); c.beginPath(); c.arc(x + 8 + (i - 1) * 7 * p, y + 24 - p * 7, 1.5 + p * 2.5, 0, 7); c.fill(); } }
+  }
+  if (t === 'mill') {
+    c.fillStyle = '#EFE3CC'; c.beginPath(); c.moveTo(x - 15, y + 12); c.lineTo(x + 15, y + 12); c.lineTo(x + 9, y - 34); c.lineTo(x - 9, y - 34); c.fill();
+    c.fillStyle = C.roof; c.beginPath(); c.moveTo(x - 12, y - 33); c.lineTo(x + 12, y - 33); c.lineTo(x, y - 49); c.fill();
+    c.fillStyle = '#6E4B30'; c.fillRect(x - 4, y, 8, 12);
+    const bags = stores.get(key(q, r)) || 0;
+    for (let i = 0; i < bags; i++) { c.fillStyle = '#E6D5AE'; c.beginPath(); c.ellipse(x + 22 + (i % 2) * 11, y + 10 - Math.floor(i / 2) * 7, 6.5, 5, 0, 0, 7); c.fill(); c.fillStyle = '#B99A62'; c.fillRect(x + 20.5 + (i % 2) * 11, y + 4 - Math.floor(i / 2) * 7, 3, 2); }
+    const a = fx?.has('gold') && !still ? now / 900 : .4;
+    c.save(); c.translate(x, y - 32); c.rotate(a);
+    for (let i = 0; i < 4; i++) { c.rotate(Math.PI / 2); c.fillStyle = '#FFF7E6'; c.fillRect(1, -4, 31, 8); c.strokeStyle = '#8A6B4C'; c.lineWidth = 1; c.strokeRect(1, -4, 31, 8); }
+    c.restore();
+  }
+}
+// Villagers: one per cottage (plus a miller). Each picks a job, walks there by the easiest route
+// (lanes are quickest), does it, then carries what they got to where it belongs.
+const SHIRTS = ['#C8462E', '#3F6FB5', '#E0A23A', '#5B9A62', '#8C5BB0', '#D96C9A', '#3E8E9E'];
+const SKINS = ['#F2CDA8', '#D9A679', '#A8714A', '#7A4E30'];
+const STEP = { path: 1, house: 1.6, field: 2, mill: 1.6, meadow: 1.6, tree: 2.2 };
+const canWalk = k => { const t = map.get(k); return !!t && t !== 'water' && t !== 'hill'; };
+const WORK = { chop: [3, 5], hoe: [3.5, 6], pet: [2.5, 4.5], pick: [2, 3.5], fetch: [1.2, 2], rest: [2.5, 5], drop: [.5, .8] };
+const chopped = new Map();  // tile key -> time of the last axe hit, to shake the tree
+const stores = new Map();   // tile key -> logs piled by a cottage, or sacks by the mill
+let folk = [], cheerUntil = 0;
+const between = ([a, b]) => a + Math.random() * (b - a);
+const split = k => k.split(',').map(Number);
+function route(from, goal) {
+  const start = key(...from), dist = new Map([[start, 0]]), back = new Map(), todo = [start];
+  while (todo.length) {
+    todo.sort((a, b) => dist.get(a) - dist.get(b));
+    const k = todo.shift();
+    if (k === goal) { const out = []; for (let n = k; n !== start; n = back.get(n)) out.unshift(split(n)); return out.length ? out : [from]; }
+    const [q, r] = split(k);
+    for (const [a, b] of DIRS) {
+      const n = key(q + a, r + b); if (!canWalk(n)) continue;
+      const d = dist.get(k) + (STEP[map.get(n)] || 2);
+      if (!dist.has(n) || d < dist.get(n)) { dist.set(n, d); back.set(n, k); if (!todo.includes(n)) todo.push(n); }
+    }
+  }
+  return null;
+}
+function jobSpot(kind, k) {
+  const [q, r] = split(k), jog = () => (Math.random() - .5) * 46;
+  if (kind === 'chop') { const list = treesAt(q, r, treeCount(info.fx.get(k))), [x, y] = list[list.length - 1]; return { off: [x - 13, y + 3], dir: 1 }; }
+  if (kind === 'pet') { const [x, y] = sheepAt(q, r, Math.floor(Math.random() * 3)); return { off: [x - 15, y + 2], dir: 1 }; }
+  if (kind === 'fetch') {
+    const near = DIRS.find(([a, b]) => map.get(key(q + a, r + b)) === 'water'), [x, y] = world(...near);
+    return { off: [x * .46, y * .46], dir: x >= 0 ? 1 : -1 };
+  }
+  if (kind === 'rest') return { off: [0, 16], dir: 1 };
+  if (kind === 'drop') return { off: map.get(k) === 'mill' ? [14, 15] : [-22, 14], dir: 1 };
+  return { off: [jog(), jog() * .5], dir: Math.random() < .5 ? 1 : -1 };
+}
+function chooseJob(f) {
+  const busy = new Set(folk.filter(o => o !== f && o.job).map(o => o.job.kind + o.job.k)), opts = [];
+  for (const [q, r, t] of st.tiles) {
+    const k = key(q, r), fx = info.fx.get(k);
+    if (t === 'tree') opts.push(['chop', k, 2.4]);
+    if (t === 'field') opts.push(['hoe', k, 3]);
+    if (fx?.has('sheep')) opts.push(['pet', k, 3]);
+    if (fx?.has('flowers')) opts.push(['pick', k, 1.6]);
+    if (t === 'house') opts.push(['rest', k, 1]);
+    if (canWalk(k) && DIRS.some(([a, b]) => map.get(key(q + a, r + b)) === 'water')) opts.push(['fetch', k, 1.2]);
+  }
+  const free = opts.filter(o => !busy.has(o[0] + o[1]));
+  for (let tries = 0; tries < 6 && free.length; tries++) {
+    let roll = Math.random() * free.reduce((n, o) => n + o[2], 0);
+    const i = free.findIndex(o => (roll -= o[2]) <= 0), [kind, k] = free.splice(Math.max(0, i), 1)[0];
+    const path = route(f.from, k);
+    if (path) return { kind, k, path, ...jobSpot(kind, k) };
+  }
+  return null;
+}
+function deliverJob(f) {
+  const want = { log: 'house', flower: 'house', sack: 'mill', pail: 'field' }[f.load];
+  const places = st.tiles.filter(t => t[2] === want).concat(st.tiles.filter(t => t[2] === 'house'));
+  for (const [q, r] of places.sort(() => Math.random() - .5)) {
+    const k = key(q, r), path = route(f.from, k);
+    if (path) return { kind: 'drop', k, path, ...jobSpot('drop', k) };
+  }
+  f.load = null; return null;
+}
+function syncFolk() {
+  const homes = st.tiles.filter(t => t[2] === 'house' || t[2] === 'mill');
+  folk = folk.filter(f => canWalk(key(...f.from)) && canWalk(key(...f.to)));
+  folk = folk.slice(0, Math.min(12, homes.length));
+  while (folk.length < Math.min(12, homes.length)) {
+    const [q, r] = homes[folk.length % homes.length], [x, y] = world(q, r), n = folk.length;
+    folk.push({ from: [q, r], to: [q, r], p: 1, wait: Math.random() * 2, x, y, dir: 1, o0: [0, 12], o1: [0, 12], pace: .55 + Math.random() * .5, path: null, job: null, work: null, load: null,
+      shirt: SHIRTS[n % SHIRTS.length], skin: SKINS[Math.floor(Math.random() * SKINS.length)], hat: n % 3 === 1, phase: Math.random() * 6 });
+  }
+}
+function spray(x, y, rgb, count, size) {
+  const t = performance.now();
+  for (let i = 0; i < count; i++) sparks.push({ x, y, t, rgb, size, dx: (Math.random() - .5) * 34, dy: -6 - Math.random() * 18 });
+}
+function finishWork(f) {
+  const { kind } = f.work, k = f.job?.k, here = map.get(k);
+  if (kind === 'chop') f.load = 'log';
+  if (kind === 'pick') f.load = 'flower';
+  if (kind === 'fetch') f.load = 'pail';
+  if (kind === 'hoe' && info.fx.get(k)?.has('gold') && st.tiles.some(t => t[2] === 'mill')) f.load = 'sack';
+  if (kind === 'drop') {
+    if ((f.load === 'log' && here === 'house') || (f.load === 'sack' && here === 'mill')) stores.set(k, Math.min(here === 'mill' ? 6 : 6, (stores.get(k) || 0) + 1));
+    if (f.load === 'pail') spray(f.x + f.dir * 10, f.y, '140,205,225', 8, 2.5);
+    if (f.load === 'flower') spray(f.x, f.y - 10, '242,167,192', 7, 2.5);
+    f.load = null;
+  }
+  f.hidden = false; f.work = null; f.job = null;
+}
+function beat(f) {
+  const { kind } = f.work;
+  if (kind === 'chop') { chopped.set(f.job.k, performance.now()); spray(f.x + 12, f.y - 8, '196,150,96', 4, 2); }
+  if (kind === 'hoe') spray(f.x + f.dir * 10, f.y, '150,120,80', 3, 2);
+  if (kind === 'pick') spray(f.x + f.dir * 6, f.y - 3, '242,167,192', 2, 2);
+  if (kind === 'pet') sparks.push({ x: f.x + 13, y: f.y - 16, t: performance.now(), heart: true, rgb: '226,80,120', dx: (Math.random() - .5) * 12, dy: -30 });
+}
+function stepTo(f, next, last) {
+  f.from = f.to; f.to = next; f.p = 0; f.o0 = f.o1;
+  f.o1 = last ? f.job.off : [(Math.random() - .5) * 26, (Math.random() - .5) * 13];
+}
+function moveFolk(dt) {
+  for (const f of folk) {
+    if (f.wait > 0) { f.wait -= dt; continue; }
+    if (f.work) {
+      f.work.left -= dt; f.work.tick -= dt;
+      if (f.work.tick <= 0) { f.work.tick = f.work.kind === 'chop' ? .62 : .72; beat(f); }
+      if (f.work.left <= 0) finishWork(f);
+      continue;
+    }
+    if (f.p >= 1) {
+      f.from = f.to;
+      if (f.job && !f.path?.length) { f.dir = f.job.dir; f.hidden = f.job.kind === 'rest'; f.work = { kind: f.job.kind, left: between(WORK[f.job.kind]), tick: .3 }; continue; }
+      if (!f.job) {
+        f.job = f.load ? deliverJob(f) : chooseJob(f);
+        if (!f.job) { f.wait = 1 + Math.random() * 2; continue; }
+        f.path = f.job.path; f.run = !f.load && Math.random() < .3;
+      }
+      const next = f.path.shift();
+      if (!canWalk(key(...next))) { f.job = null; f.path = null; continue; }
+      stepTo(f, next, !f.path.length);
+    }
+    f.p = Math.min(1, f.p + f.pace * (f.run ? 1.7 : 1) * dt);
+    const [ax, ay] = world(...f.from), [bx, by] = world(...f.to), nx = ax + f.o0[0], ny = ay + f.o0[1], mx = bx + f.o1[0], my = by + f.o1[1];
+    f.x = nx + (mx - nx) * f.p; f.y = ny + (my - ny) * f.p;
+    if (Math.abs(mx - nx) > 1) f.dir = mx > nx ? 1 : -1;
+  }
+}
+function person(c, f, now) {
+  if (f.hidden) return;
+  const job = f.work?.kind, moving = !job && f.wait <= 0 && f.p < 1, cheer = now < cheerUntil;
+  const t = now / (f.run ? 75 : 115) + f.phase, stride = moving ? Math.sin(t) * 4 : 0, d = f.dir;
+  const low = job === 'pet' || job === 'pick' || job === 'fetch' ? 3 : 0;
+  const lift = cheer ? Math.abs(Math.sin(now / 130 + f.phase)) * 9 : moving ? Math.abs(Math.cos(t)) * 1.8 : 0;
+  const x = f.x, y = f.y - lift + low, bend = job === 'hoe' ? Math.sin(now / 340 + f.phase) * 1.6 + 1.5 : low ? 2 : 0;
+  c.fillStyle = 'rgba(0,0,0,.16)'; c.beginPath(); c.ellipse(f.x, f.y + .5, 5, 2, 0, 0, 7); c.fill();
+  c.strokeStyle = '#4A3A30'; c.lineWidth = 2; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(x - 1, y - 6); c.lineTo(x - 1 - stride, y - low); c.moveTo(x + 1, y - 6); c.lineTo(x + 1 + stride, y - low); c.stroke();
+  const hx = x + bend * d;   // shoulders lean into the work
+  const swing = job === 'chop' ? Math.sin(now / 99 + f.phase) : job === 'hoe' ? Math.sin(now / 340 + f.phase) : 0;
+  c.strokeStyle = f.skin; c.lineWidth = 1.8; c.beginPath();
+  if (cheer) { c.moveTo(hx - 3, y - 12); c.lineTo(hx - 6, y - 19); c.moveTo(hx + 3, y - 12); c.lineTo(hx + 6, y - 19); }
+  else if (job === 'chop') { c.moveTo(hx, y - 12); c.lineTo(hx + d * (5 + swing * 2), y - 13 - swing * 4); }
+  else if (job) { c.moveTo(hx, y - 12); c.lineTo(hx + d * 7, y - 8 + (job === 'pet' ? Math.sin(now / 160) * 1.6 : 0)); }
+  else { c.moveTo(hx - 3, y - 12); c.lineTo(hx - 4 + stride * .5, y - 7); c.moveTo(hx + 3, y - 12); c.lineTo(hx + 4 - stride * .5, y - 7); }
+  c.stroke();
+  if (job === 'chop' && !cheer) {
+    const ax = hx + d * (5 + swing * 2), ay = y - 13 - swing * 4, tip = [ax + d * (5 + swing * 3), ay - 7 + swing * 12];
+    c.strokeStyle = '#7A5433'; c.lineWidth = 1.8; c.beginPath(); c.moveTo(ax, ay); c.lineTo(...tip); c.stroke();
+    c.fillStyle = '#AEB6BB'; c.fillRect(tip[0] - 2, tip[1] - 2.5, 5, 5);
+  }
+  if (job === 'hoe' && !cheer) { c.strokeStyle = '#7A5433'; c.lineWidth = 1.8; c.beginPath(); c.moveTo(hx + d * 5, y - 10); c.lineTo(hx + d * (12 + swing * 3), y + 1); c.stroke(); c.strokeStyle = '#8E979C'; c.lineWidth = 2.4; c.beginPath(); c.moveTo(hx + d * (10 + swing * 3), y + 1); c.lineTo(hx + d * (14 + swing * 3), y + 2); c.stroke(); }
+  c.lineCap = 'butt';
+  c.fillStyle = f.shirt; c.beginPath(); c.roundRect(hx - 4, y - 14, 8, 9, 2.5); c.fill();
+  c.fillStyle = f.skin; c.beginPath(); c.arc(hx + d * .5, y - 17.5, 3.6, 0, 7); c.fill();
+  if (f.hat) { c.fillStyle = '#E6C766'; c.beginPath(); c.ellipse(hx + d * .5, y - 19.5, 5.5, 1.6, 0, 0, 7); c.fill(); c.fillRect(hx - 2.5 + d * .5, y - 23, 6, 3.5); }
+  if (f.load === 'log' || (job === 'drop' && f.load === 'log')) { c.save(); c.translate(hx, y - 15); c.rotate(-.35 * d); c.fillStyle = '#8A5F3A'; c.fillRect(-9, -2.5, 18, 5); c.fillStyle = '#D9B98C'; c.beginPath(); c.arc(9 * d, 0, 2.5, 0, 7); c.fill(); c.restore(); }
+  if (f.load === 'sack') { c.fillStyle = '#E6D5AE'; c.beginPath(); c.ellipse(hx - d * 4, y - 15, 5.5, 6.5, 0, 0, 7); c.fill(); }
+  if (f.load === 'pail') { c.fillStyle = '#9AA7AD'; c.fillRect(hx + d * 4 - 2, y - 9, 6, 6); c.fillStyle = '#8CCDE1'; c.fillRect(hx + d * 4 - 2, y - 9, 6, 2); }
+  if (f.load === 'flower') { c.fillStyle = '#F2A7C0'; c.beginPath(); c.arc(hx + d * 6, y - 11, 3, 0, 7); c.fill(); c.fillStyle = '#FFD65C'; c.beginPath(); c.arc(hx + d * 6, y - 11, 1.2, 0, 7); c.fill(); }
+}
+function big(c, f, now) { c.save(); c.translate(f.x, f.y); c.scale(1.3, 1.3); c.translate(-f.x, -f.y); person(c, f, now); c.restore(); }
+// Sky things, drawn over the valley in canvas space. Each is worked out from the clock, so nothing to store.
+function drawSky(c, now) {
+  const fall = { winter: [46, 1.5, '#FFF'], autumn: [16, 3, '#D9822E'], spring: [14, 2.4, '#F7C3D3'] }[seasonName];
+  if (fall) for (let i = 0; i < fall[0]; i++) {
+    const a = i * 137.5, speed = .022 + (i % 5) * .007, y = (now * speed + a * 9) % (H + 20) - 10, x = (a * 7.3 + Math.sin(now / 1500 + i) * 34 + now * .008) % (W + 40) - 20;
+    c.fillStyle = fall[2];
+    c.save(); c.translate(x, y); c.rotate(seasonName === 'winter' ? 0 : now / 600 + i); c.beginPath(); c.ellipse(0, 0, fall[1], seasonName === 'winter' ? fall[1] : fall[1] * .55, 0, 0, 7); c.fill(); c.restore();
+  }
+  for (let i = 0; i < 3; i++) {
+    const x = ((now * (.011 + i * .004) + i * 470) % (W + 420)) - 210, y = 60 + i * 56, k = 1 - i * .16;
+    c.fillStyle = 'rgba(40,50,60,.05)'; c.beginPath(); c.ellipse(x + 40, y + 300, 120 * k, 36 * k, 0, 0, 7); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.62)'; c.beginPath();
+    [[-62, 8, 30], [-24, -6, 42], [26, -2, 36], [62, 10, 26]].forEach(([a, b, r]) => { c.moveTo(x + a * k + r * k, y + b * k); c.arc(x + a * k, y + b * k, r * k, 0, 7); });
+    c.fill();
+  }
+  const trip = (now / 22000) % 1;
+  if (trip < .55) {
+    const px = -90 + (W + 180) * trip / .55, py = 110 + Math.sin(trip * 30) * 12;
+    c.strokeStyle = 'rgba(45,45,55,.72)'; c.lineWidth = 2; c.lineCap = 'round';
+    [[0, 0], [-26, -13], [-26, 13], [-52, -26], [-52, 26]].forEach(([a, b], i) => {
+      const fl = Math.sin(now / 150 + i) * 5, bx = px + a, by = py + b * .6;
+      c.beginPath(); c.moveTo(bx - 9, by - fl); c.quadraticCurveTo(bx - 3, by - 2, bx, by); c.quadraticCurveTo(bx + 3, by - 2, bx + 9, by - fl); c.stroke();
+    });
+    c.lineCap = 'butt';
+  }
+}
+function fitCamera(force) {
+  const pts = [...st.tiles, ...slots()].map(([q, r]) => world(q, r));
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  const x0 = Math.min(...xs) - R * 1.1, x1 = Math.max(...xs) + R * 1.1, y0 = Math.min(...ys) - R * 1.5, y1 = Math.max(...ys) + R * 1.1;
+  const s = Math.min(1.5, W / (x1 - x0), H / (y1 - y0)), tx = (x0 + x1) / 2, ty = (y0 + y1) / 2;
+  const k = force ? 1 : .12;
+  cam.s += (s - cam.s) * k; cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
+}
+function paintScene(c, now, showSlots) {
+  const clock = performance.now();
+  const sky = c.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, C.sky[0]); sky.addColorStop(1, C.sky[1]);
+  c.fillStyle = sky; c.fillRect(0, 0, W, H);
+  c.save(); c.translate(W / 2, H / 2); c.scale(cam.s, cam.s); c.translate(-cam.x, -cam.y);
+  const order = [...st.tiles].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  const drop = k => {
+    if (!showSlots) return 0;
+    let d = 0; const t0 = spin.get(k), t1 = hops.get(k);
+    if (t0) { const p = Math.max(0, Math.min(1, (clock - t0) / 320)); d += (1 - p) * (1 - p) * -38; }
+    if (t1 && clock > t1) { const p = Math.min(1, (clock - t1) / 480); d -= Math.sin(p * Math.PI) * 12 * (1 - p * .4); }
+    return d;
+  };
+  if (showSlots) for (const [q, r] of slots()) {
+    const [x, y] = world(q, r), k = key(q, r), gold = hints.has(k);
+    c.setLineDash([7, 6]); c.lineWidth = gold ? 3.5 : 2; c.strokeStyle = gold ? '#E2A92B' : 'rgba(60,50,40,.28)'; hex(c, x, y, R - 7); c.stroke(); c.setLineDash([]);
+    if (gold) { c.fillStyle = 'rgba(255,214,92,.2)'; hex(c, x, y, R - 7); c.fill(); }
+  }
+  order.forEach(([q, r, t]) => { const k = key(q, r), [x, y] = world(q, r), d = drop(k); base(c, x, y + d, t, info.fx.get(k)); });
+  const people = [...folk].sort((a, b) => a.y - b.y);
+  let pi = 0;
+  order.forEach(([q, r, t]) => {
+    const k = key(q, r), [x, y] = world(q, r), d = drop(k);
+    while (pi < people.length && people[pi].y < y) big(c, people[pi++], clock);
+    details(c, q, r, x, y + d, t, info.fx.get(k), now);
+  });
+  while (pi < people.length) big(c, people[pi++], clock);
+  if (showSlots && hover && hand()[pick]) {
+    const [q, r] = hover, [x, y] = world(q, r), t = hand()[pick][0];
+    c.globalAlpha = .72; base(c, x, y, t); details(c, q, r, x, y, t, null, now); c.globalAlpha = 1;
+  }
+  sparks = sparks.filter(s => clock - s.t < 900);
+  if (showSlots) sparks.filter(s => clock >= s.t).forEach(s => { const p = (clock - s.t) / 900; const a = (1 - p) * (s.dust ? .85 : 1);
+    c.fillStyle = `rgba(${s.rgb || (s.dust ? '214,196,160' : '255,214,92')},${a})`;
+    if (s.heart) { c.font = '700 13px Georgia, serif'; c.textAlign = 'center'; c.fillText('♥', s.x + s.dx * p, s.y + s.dy * p); return; }
+    c.beginPath(); c.arc(s.x + s.dx * p, s.y + s.dy * p - (s.dust ? 4 : 30) * p, (s.size || (s.dust ? 5 : 4)) * (1 - p) + 1, 0, 7); c.fill(); });
+  c.restore();
+  if (showSlots && !still) drawSky(c, now);
+}
+let lastDraw = 0;
+function frame(now) {
+  // About 30 frames a second is plenty for ducks.
+  if (now - lastDraw > 30) {
+    if (!still) moveFolk(Math.min(.1, (now - lastDraw) / 1000));
+    lastDraw = now; fitCamera(); paintScene(g, still ? 0 : now, true);
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------- Tray, wishes, guide ----------
+function icon(t) {
+  const c = document.createElement('canvas'); c.width = 152; c.height = 120;
+  const x = c.getContext('2d'); x.translate(76, 68); x.scale(.92, .92);
+  const fake = t === 'mill' ? new Set() : null;
+  base(x, 0, 0, t, fake); details(x, 99, 99, 0, 0, t, fake, 0);
+  return c;
+}
+function renderTray() {
+  const tray = document.getElementById('tray'), h = hand();
+  if (pick >= h.length) pick = 0;
+  tray.innerHTML = '';
+  h.forEach(([t], i) => {
+    const b = document.createElement('button'); b.className = 'tile'; b.setAttribute('aria-pressed', i === pick);
+    b.append(icon(t), TYPES[t].name);
+    b.onclick = () => { pick = i; renderTray(); refreshHints(); };
+    tray.append(b);
+  });
+  const left = bag.length - st.used.length;
+  document.getElementById('left').textContent = left ? `${left} tile${left === 1 ? '' : 's'} left today` : 'That\'s the whole bag. Lovely.';
+}
+function renderSide() {
+  const wish = wishes.map(w => `<span class="${info.found.has(w) ? 'got' : ''}">${FINDS[w][0]}</span>`).join('');
+  document.getElementById('prompt').innerHTML = `<span class="k">${seasonName[0].toUpperCase() + seasonName.slice(1)} in the vale</span><span class="v">Grow your valley</span>
+    <span class="s">Pick a tile, then place it next to your land. Neighbours change each other. Today's wishes, if you fancy them:</span><div class="wish">${wish}</div>`;
+  document.getElementById('guideHead').textContent = `Field guide · ${[...book].length} of ${Object.keys(FINDS).length} found`;
+  document.getElementById('book').innerHTML = Object.entries(FINDS).map(([k, [n, d, h]]) => book.has(k) ? `<div><b>${n}</b>${d}</div>` : `<div class="off"><b>???</b>${h}</div>`).join('');
+  document.getElementById('done').textContent = st.done ? 'Home ✓' : 'Call it home';
+}
+
+// ---------- Placing ----------
+function atSlot(e) {
+  const b = cv.getBoundingClientRect(), mx = (e.clientX - b.left) * W / b.width, my = (e.clientY - b.top) * H / b.height;
+  const wx = (mx - W / 2) / cam.s + cam.x, wy = (my - H / 2) / cam.s + cam.y;
+  let best = null, bd = R * .95;
+  for (const s of slots()) { const [x, y] = world(...s), d = Math.hypot(x - wx, (y - wy) / SQ); if (d < bd) { bd = d; best = s; } }
+  return best;
+}
+cv.addEventListener('pointermove', e => { hover = atSlot(e); });
+cv.addEventListener('pointerleave', () => { hover = null; });
+cv.addEventListener('click', e => {
+  const s = atSlot(e), h = hand()[pick];
+  if (!s) return;
+  if (!h) return Muze.toast('That\'s all the tiles for today');
+  const before = info.found, oldFx = info.fx;
+  st.tiles.push([s[0], s[1], h[0]]); st.used.push(h[1]); st.done = false;
+  map = mapOf(st.tiles); info = study(map); hover = null;
+  const t0 = performance.now(), [px, py] = world(s[0], s[1]);
+  spin.set(key(s[0], s[1]), t0);
+  for (let i = 0; i < 12; i++) { const a = i / 12 * 6.28; sparks.push({ x: px + Math.cos(a) * 44, y: py + Math.sin(a) * 28 + 8, t: t0 + 200, dust: true, dx: Math.cos(a) * 34, dy: Math.sin(a) * 18 }); }
+  // Anything this tile changed gives a little hop, rippling out from it.
+  for (const [k, set] of info.fx) if ([...set].some(f => !oldFx.get(k)?.has(f))) {
+    const [q, r] = k.split(',').map(Number), far = Math.max(Math.abs(q - s[0]), Math.abs(r - s[1]), Math.abs(q + r - s[0] - s[1]));
+    if (far) hops.set(k, t0 + 240 + far * 90);
+  }
+  syncFolk();
+  const fresh = [...info.found].filter(f => !before.has(f));
+  if (fresh.length) {
+    const [x, y] = world(s[0], s[1]), t = performance.now();
+    for (let i = 0; i < 18; i++) sparks.push({ x, y, t, dx: (Math.random() - .5) * 120, dy: (Math.random() - .5) * 80 });
+    Muze.toast(FINDS[fresh[0]][0] + (fresh.length > 1 ? ` and ${fresh.length - 1} more` : ''));
+    cheerUntil = t0 + 1500;
+    fresh.forEach(f => book.add(f));
+    try { localStorage.setItem(BOOK, JSON.stringify([...book])); } catch (err) {}
+  }
+  Muze.save(GAME, st); renderTray(); renderSide(); refreshHints();
+});
+document.getElementById('undo').onclick = () => {
+  if (st.tiles.length < 2) return Muze.toast('Nothing to undo');
+  st.tiles.pop(); st.used.pop(); st.done = false;
+  map = mapOf(st.tiles); info = study(map); syncFolk();
+  Muze.save(GAME, st); renderTray(); renderSide(); refreshHints();
+};
+document.getElementById('done').onclick = () => {
+  if (st.tiles.length < 4) return Muze.toast('Place a few more tiles first');
+  st.done = true; Muze.save(GAME, st); renderSide(); Muze.toast('Welcome home'); Muze.addToGallery(GAME);
+};
+document.getElementById('save').onclick = async () => {
+  await document.fonts.ready;
+  const foot = 64, c = document.createElement('canvas'); c.width = W; c.height = H + foot;
+  const x = c.getContext('2d');
+  fitCamera(true); paintScene(x, 0, false);
+  x.fillStyle = '#FBF6EC'; x.fillRect(0, H, W, foot);
+  x.fillStyle = '#7A6A5D'; x.font = '700 24px Nunito, sans-serif'; x.textAlign = 'center';
+  x.fillText(`A ${seasonName} valley of ${st.tiles.length} tiles · ${Muze.tag}`, W / 2, H + 40);
+  Muze.download(c, 'vale');
+};
+
+info.found.forEach(f => book.add(f));
+fitCamera(true); renderTray(); renderSide(); refreshHints(); syncFolk();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

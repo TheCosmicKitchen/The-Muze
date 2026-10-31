@@ -178,6 +178,16 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px}
       <div><h2>Collage</h2><p>Three public-domain artworks to cut up. Draw around a shape, scissor it out, paste it down.</p></div>
       <span class="pill" id="s-collage">Today</span>
     </a>
+    <a class="card" href="vale.html">
+      <svg viewBox="0 0 72 72" aria-hidden="true">
+        <polygon points="36,6 62,20 62,50 36,64 10,50 10,20" fill="var(--f3)"/>
+        <polygon points="36,34 62,50 36,64 10,50" fill="#7FC4D6"/>
+        <path d="M18 34l9-16 9 16Z" fill="#3F6F4A"/><path d="M34 32l7-13 7 13Z" fill="#3F6F4A"/>
+        <rect x="42" y="36" width="13" height="9" fill="#F4E9D2"/><path d="M40 36h17l-8.5-8Z" fill="var(--f0)"/>
+      </svg>
+      <div><h2>Vale</h2><p>Grow a little valley, one tile at a time. No score, nothing to lose, and neighbours change each other.</p></div>
+      <span class="pill" id="s-vale">Today</span>
+    </a>
   </div>
   <div class="shelf" id="shelf" hidden><h3>Your shelf</h3></div>
   <footer>New prompts at local midnight · everything you make stays on this device<br>Served by <a href="https://thecosmickitchen.github.io/">The Cosmic Kitchen</a></footer>
@@ -193,6 +203,7 @@ const started = {
   paint: s => !!s.img, oneline: s => !!s.img, shape: s => !!s.img, corpse: s => !!s.img,
   pixel: s => s.px && s.px.some(p => p >= 0), collage: s => (s.items || s.pieces || []).length,
   strip: s => s.b && s.b.some(b => b.text.trim()),
+  vale: s => s.tiles && s.tiles.length > 1,
 };
 Object.keys(started).forEach(g => {
   const s = get('muze-' + g), el = document.getElementById('s-' + g);
