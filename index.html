@@ -38,6 +38,19 @@ a.gal:focus-visible{outline:2.5px solid var(--f1);outline-offset:2px}
 .shelf blockquote{margin:0;background:var(--surface);border-radius:14px;padding:10px 14px;font:16px/1.45 var(--serif);white-space:pre-wrap}
 .shelf cite{display:block;font:600 11px var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:4px;font-style:normal}
 footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px}
+/* Streak card: days in a row you made something, and this week as paint daubs. */
+.streak{background:var(--surface);border-radius:18px;padding:14px 16px 12px;display:flex;flex-direction:column;gap:10px}
+.streak .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.streak .eb{font:600 12px var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.streak .big{display:flex;align-items:baseline;gap:8px;margin-top:2px}
+.streak .n{font:700 44px/1 var(--display);color:var(--f0);font-variant-numeric:tabular-nums}
+.streak .lab{font:600 20px var(--display)}
+.streak .note{color:var(--muted);font-size:14px;margin:0}
+.streak .best{color:var(--muted);font-size:13px;white-space:nowrap}
+.streak .days{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;border-top:1.5px dashed var(--line);padding-top:10px}
+.streak .day{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--muted)}
+.streak .day svg{width:34px;height:34px}
+.streak .day.today{color:var(--f1);font-weight:700}
 @media (max-width:420px){a.card{grid-template-columns:56px 1fr}.card svg{width:56px;height:56px}.pill{grid-column:2;justify-self:start}}
 </style>
 </head>
@@ -48,6 +61,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px}
     <div class="date" id="date"></div>
   </div>
   <p class="tag">Something small to make every day, free. No wrong answers, no scores.</p>
+  <section class="streak" id="streak" aria-label="Your streak" hidden></section>
   <a class="gal" href="gallery.html"><span><b>Today's gallery</b><span id="galCount">Finish something and it lands here, ready to share.</span></span><span class="go">View →</span></a>
   <div class="sect"><h3>Words</h3></div>
   <div class="cards">
@@ -192,6 +206,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px}
   <div class="shelf" id="shelf" hidden><h3>Your shelf</h3></div>
   <footer>New prompts at local midnight · everything you make stays on this device<br>Served by <a href="https://thecosmickitchen.github.io/">The Cosmic Kitchen</a></footer>
 </div>
+<script src="streak.js"></script>
 <script>
 const t = new Date();
 document.getElementById('date').textContent = t.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
@@ -228,6 +243,28 @@ Object.keys(shelf).sort().reverse().slice(0, 5).forEach(day => {
     q.append(c); shelfEl.append(q); shelfEl.hidden = false;
   });
 });
+
+// Streak card. Pieces already in today's gallery count too (in case they were made before streaks existed).
+if (window.Kitchen) {
+  Object.keys((get('muze-gallery') || {})[iso] || {}).forEach(g => Kitchen.mark(g));
+  const S = Kitchen.streak('muze'), W = Kitchen.week('muze'), cols = ['--f0', '--f2', '--f1', '--f3'];
+  // a slightly lumpy paint daub for each day you made something
+  const blob = 'M17,4 C25,3 31,9 30,17 C31,25 25,31 17,30 C9,31 3,26 4,17 C3,9 9,5 17,4Z';
+  const daub = (d, i) => d.done
+    ? `<svg viewBox="0 0 34 34" aria-hidden="true"><path d="${blob}" fill="var(${cols[i % 4]})" transform="rotate(${i * 47} 17 17)"/></svg>`
+    : d.today
+      ? '<svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="13" fill="none" stroke="var(--f1)" stroke-width="2.2" stroke-dasharray="4 3"/></svg>'
+      : `<svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="12" fill="${d.future ? 'none' : 'var(--felt)'}" stroke="var(--line)" stroke-width="1.4"/></svg>`;
+  const n = S.current;
+  const note = n === 0 ? 'Make anything today to start a streak.' : S.doneToday ? 'Made something today. See you tomorrow.' : 'Make one thing today to keep it going.';
+  const day = (d, i) => `<div class="day ${d.today ? 'today' : ''}" aria-label="${d.date.toLocaleDateString(undefined, { weekday: 'long' })}: ${d.done ? 'made something' : d.future ? 'still to come' : d.today ? 'not yet' : 'nothing made'}">${daub(d, i)}<span>${d.today ? 'today' : d.date.toLocaleDateString(undefined, { weekday: 'short' })}</span></div>`;
+  const el = document.getElementById('streak');
+  el.innerHTML = `<div class="top"><div><div class="eb">Your streak</div>
+      <div class="big"><span class="n">${n}</span><span class="lab">${n === 1 ? 'day in a row' : 'days in a row'}</span></div>
+      <p class="note">${note}</p></div>${S.best > 1 ? `<span class="best">Best ${S.best}</span>` : ''}</div>
+    <div class="days">${W.map(day).join('')}</div>`;
+  el.hidden = false;
+}
 </script>
 </body>
 </html>
