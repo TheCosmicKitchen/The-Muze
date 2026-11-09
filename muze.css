@@ -22,7 +22,9 @@ a{color:var(--f1)}
 .bar a{color:var(--muted);text-decoration:none;font:600 15px var(--display)}
 .bar a:hover{color:var(--ink)}
 .bar .when a{font:inherit;text-decoration:underline}
-.titlerow{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.titlerow{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.titlerow h1{min-width:0;text-wrap:balance}
+.titlerow .btn{flex:none;white-space:nowrap}
 h1{font:600 38px/1 var(--display);margin:0;letter-spacing:-.01em}
 .lede{color:var(--muted);margin:0}
 .prompt{background:var(--surface);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
@@ -54,4 +56,5 @@ h1{font:600 38px/1 var(--display);margin:0;letter-spacing:-.01em}
 .foot{color:var(--muted);font-size:13px;text-align:center;margin-top:6px}
 .toast{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;background:var(--ink);color:var(--bg);font:600 15px var(--display);padding:10px 18px;border-radius:999px;transition:.2s;pointer-events:none;z-index:99}
 .toast.on{opacity:1;transform:translate(-50%,0)}
-@media (max-width:480px){h1{font-size:30px}.prompt .v{font-size:19px}}
+@media (max-width:480px){h1{font-size:30px}.prompt .v{font-size:19px}.titlerow{gap:6px}.titlerow .btn{font-size:14px;padding-inline:8px;margin-right:-8px}}
+@media (max-width:380px){h1{font-size:27px}}

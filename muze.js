@@ -42,6 +42,7 @@ const Muze = (() => {
   // Keeps finished daily text pieces (poems, stories) so a shelf page can show them later.
   function keep(game, text) {
     if (!daily) return;
+    if (window.Kitchen) Kitchen.mark(game);
     try {
       const k = 'muze-shelf', s = JSON.parse(localStorage.getItem(k)) || {};
       (s[today] = s[today] || {})[game] = text;
@@ -95,6 +96,7 @@ const Muze = (() => {
   }
   async function addToGallery(game, render) {
     if (!daily) return;
+    if (window.Kitchen) Kitchen.mark(game);
     snapping = game;
     try { await (render || document.getElementById('save').onclick)(); }
     catch (e) {}
