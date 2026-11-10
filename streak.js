@@ -4,12 +4,16 @@
 //
 // Cookie "ck1" = <yyyymmdd of newest day>.<best Puzz streak>.<best Muze streak>.<mask>-<mask>-...
 // Each mask is a base-36 bitmask of the dailies finished that day, newest day first, 42 days kept.
-// Bits 0-9 are Puzz games and bits 10-23 are Muze makes, in the order of GAMES below. Never reorder, only append.
+// One bit per game, in the order of GAMES below. Never reorder, only append (and stay under 31 games).
 (function () {
   const NAME = 'ck1', KEEP = 42, MAX_AGE = 400 * 86400;
   const GAMES = ['hex', 'sb', 'jg', 'ws', 'hk', 'cl', 'st', 'sm', 'ta', 'la',
-    'blackout', 'haiku', 'cutup', 'fridge', 'sixwords', 'palette', 'strip', 'paint', 'oneline', 'shape', 'corpse', 'pixel', 'collage', 'vale'];
-  const SITE = { puzz: (1 << 10) - 1, muze: ((1 << 24) - 1) & ~((1 << 10) - 1) };
+    'blackout', 'haiku', 'cutup', 'fridge', 'sixwords', 'palette', 'strip', 'paint', 'oneline', 'shape', 'corpse', 'pixel', 'collage', 'vale',
+    'ts'];
+  // Which site each game belongs to.
+  const PUZZ = ['hex', 'sb', 'jg', 'ws', 'hk', 'cl', 'st', 'sm', 'ta', 'la', 'ts'];
+  const bits = list => list.reduce((m, g) => m | (1 << GAMES.indexOf(g)), 0);
+  const SITE = { puzz: bits(PUZZ), muze: bits(GAMES.filter(g => !PUZZ.includes(g))) };
 
   const midnight = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
