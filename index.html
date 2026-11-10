@@ -244,9 +244,11 @@ Object.keys(shelf).sort().reverse().slice(0, 5).forEach(day => {
   });
 });
 
-// Streak card. Pieces already in today's gallery count too (in case they were made before streaks existed).
+// Streak card. Fill in makes the streak missed first (made before streaks existed, or on a day this page
+// wasn't opened): the gallery keeps three days of finished pieces and the shelf keeps finished texts.
 if (window.Kitchen) {
-  Object.keys((get('muze-gallery') || {})[iso] || {}).forEach(g => Kitchen.mark(g));
+  for (const k of ['muze-gallery', 'muze-shelf'])
+    Object.entries(get(k) || {}).forEach(([d, games]) => Object.keys(games || {}).forEach(g => Kitchen.mark(g, d)));
   const S = Kitchen.streak('muze'), W = Kitchen.week('muze'), cols = ['--f0', '--f2', '--f1', '--f3'];
   // a slightly lumpy paint daub for each day you made something
   const blob = 'M17,4 C25,3 31,9 30,17 C31,25 25,31 17,30 C9,31 3,26 4,17 C3,9 9,5 17,4Z';
