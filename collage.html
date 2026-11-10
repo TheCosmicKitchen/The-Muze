@@ -4,13 +4,27 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Collage · The Muze</title>
-<meta name="description" content="Cut pieces out of three public-domain artworks and collage them into something new.">
+<meta name="description" content="Eight figures cut out of old paintings and three artworks for a backdrop: paste, move, flip and layer them into something new.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,400&family=Nunito:wght@400;600;700&family=Libre+Caslon+Text:ital@0;1&display=swap">
 <link rel="stylesheet" href="muze.css">
 <link rel="stylesheet" href="cutpaste.css">
 <style>
-/* Layout: prompt; scraps and select tools on the left; the collage board and its fine-tuning panel on the right. */
+/* Layout: prompt; cutouts, then the paintings and their cut tools on the left; the collage board and its fine-tuning panel on the right. */
+.tray{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.tray button{aspect-ratio:1;border:2px solid transparent;border-radius:12px;background:var(--paper);padding:6px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.tray button:hover{border-color:var(--line)}
+.tray button:focus-visible{outline:2.5px solid var(--f1);outline-offset:2px}
+.tray img{max-width:100%;max-height:100%;filter:drop-shadow(0 2px 2px rgba(0,0,0,.25))}
+.traybox{display:flex;flex-direction:column;gap:10px}
+.tray-hint{font-size:13px;color:var(--muted);margin:-4px 0 0}
+details.cutown summary{cursor:pointer;font:600 15px var(--display);padding:4px 0}
+details.cutown[open] summary{margin-bottom:8px}
+details.cutown>div{display:flex;flex-direction:column;gap:10px}
+/* One column on phones: the board comes first with the cutout tray right under it (moved there by the script),
+   so a pasted figure lands in view. */
+@media (max-width:820px){.cp-cols>.cp-col:last-child{order:-1}#board{width:min(100%,calc(46vh * .8));margin-inline:auto}
+  .tray{grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}.tray button{padding:3px;border-radius:8px}.traybox .sect,.tray-hint{display:none}}
 #board{aspect-ratio:4/5}
 .bgs{display:flex;gap:6px}
 .bgs button{width:28px;height:28px;border-radius:50%;border:2px solid var(--surface);box-shadow:0 0 0 2px var(--line);cursor:pointer;padding:0}
@@ -22,10 +36,18 @@
   <div class="prompt" id="prompt"></div>
   <div class="cp-cols">
     <div class="cp-col">
-      <div class="sect">Scraps</div>
+      <div class="traybox" id="traybox">
+        <div class="sect">Cutouts</div>
+        <div class="tray" id="tray"></div>
+        <p class="tray-hint">Tap a figure to paste it in. Drag, turn and flip it on the board.</p>
+      </div>
+      <div class="sect">Paintings</div>
       <div class="cp-thumbs" id="thumbs"></div>
-      <div id="tools"></div>
-      <div id="view"></div>
+      <div class="tools"><button class="btn" id="backdrop">Use as backdrop</button></div>
+      <details class="cutown" id="cutown"><summary>Cut your own pieces</summary><div>
+        <div id="tools"></div>
+        <div id="view"></div>
+      </div></details>
       <div class="cred" id="cred"></div>
     </div>
     <div class="cp-col">
@@ -41,6 +63,7 @@
   <p class="foot">Artworks: Art Institute of Chicago, public domain (CC0) · your collage stays on this device</p>
 </div>
 <script src="data/art.js"></script>
+<script src="data/cutouts.js"></script>
 <script src="streak.js"></script>
 <script src="muze.js"></script>
 <script src="cutpaste.js"></script>
@@ -53,8 +76,11 @@ const THEMES = ['Make a creature', 'Make a place you\'d like to visit', 'Make a 
 const r = Muze.rng(Muze.seed + 'collage');
 const works = Muze.shuffle(ART.map((_, i) => i), r).slice(0, 3).map(i => ART[i]);
 const theme = Muze.pick(THEMES, r);
+// Eight ready-cut figures a day, from a separate stream so the day's paintings and theme stay as they were.
+const figs = Muze.shuffle(CUTOUTS.map((_, i) => i), Muze.rng(Muze.seed + 'cutouts')).slice(0, 8).map(i => CUTOUTS[i]);
+const artOf = c => ART.find(a => a.i === c.i) || { t: 'Untitled', a: 'Unknown' };
 document.getElementById('prompt').innerHTML =
-  `<span class="k">Today's scraps</span><span class="v">${theme}</span><span class="s">Three artworks to cut up. Pick a select tool, cut a shape, then arrange the pieces.</span>`;
+  `<span class="k">Today's scraps</span><span class="v">${theme}</span><span class="s">Eight figures cut out of old paintings, and three paintings for a backdrop. Paste, move, flip and layer them. Or cut your own.</span>`;
 
 const st = Muze.load(GAME) || { items: [], bg: 0, done: false };
 // Saves from before the select-tool update kept pieces under `pieces`.
@@ -63,10 +89,27 @@ const persist = () => { st.done = st.done && st.items.length > 0; Muze.save(GAME
 const cp = CutPaste.create({
   st, persist, base: 600,
   els: { thumbs: thumbs, tools: tools, view: view, credit: cred, board: board, panel: panel },
-  empty: 'Cut a shape out of a painting. Pieces land here.',
+  empty: 'Tap a cutout to paste it here.',
   sources: works.map(w => ({ src: `art/${w.i}.jpg`, label: `${w.t} by ${w.a}`,
-    credit: `<i>${w.t}</i>, ${w.a}${w.d ? `, ${w.d}` : ''} · <a href="https://www.artic.edu/artworks/${w.id}" target="_blank" rel="noopener">Art Institute of Chicago</a>` })),
+    credit: `<i>${w.t}</i>, ${w.a}${w.d ? `, ${w.d}` : ''} · <a href="https://www.artic.edu/artworks/${w.id}" target="_blank" rel="noopener">Art Institute of Chicago</a>` })).concat(
+    figs.map(c => ({ src: `cutouts/${c.i}.webp`, label: `${c.n}, from ${artOf(c).t} by ${artOf(c).a}`, tray: true }))),
 });
+// Where each source came from, for the credit line on the saved image.
+const meta = works.concat(figs.map(artOf));
+figs.forEach((c, k) => {
+  const b = document.createElement('button');
+  b.innerHTML = `<img alt="" src="cutouts/${c.i}.webp" width="${c.w}" height="${c.h}">`;
+  b.setAttribute('aria-label', `Paste ${c.n}`); b.title = `${c.n} · from ${artOf(c).t}, ${artOf(c).a}`;
+  b.onclick = () => cp.paste(works.length + k);
+  tray.append(b);
+});
+document.getElementById('backdrop').onclick = () => cp.paste(cp.current, { cover: true });
+// Phones: the tray moves to just under the board, so figures land in view.
+const trayHome = traybox.parentNode, trayNext = traybox.nextSibling, narrow = matchMedia('(max-width:820px)');
+const moveTray = () => narrow.matches ? board.after(traybox) : trayHome.insertBefore(traybox, trayNext);
+narrow.addEventListener('change', moveTray); moveTray();
+// Anyone who already cut pieces today keeps the cut tools open.
+if (st.items.some(it => it.a < works.length && JSON.stringify(it.poly) !== '[[0,0],[1,0],[1,1],[0,1]]')) cutown.open = true;
 
 const BGS = ['#FAF6EC', '#C9A87C', '#1E1B17', '#BFD7EA'];
 BGS.forEach((c, i) => {
@@ -80,12 +123,12 @@ paintBg();
 const doneBtn = document.getElementById('done');
 function renderDone() { doneBtn.textContent = st.done ? 'Done ✓' : 'Done'; }
 doneBtn.onclick = () => {
-  if (!st.items.length) return Muze.toast('Cut out a piece first');
+  if (!st.items.length) return Muze.toast('Paste a cutout in first');
   st.done = true; Muze.save(GAME, st); renderDone(); Muze.toast('Pasted down'); Muze.addToGallery(GAME);
 };
 renderDone();
 document.getElementById('save').onclick = async () => {
-  if (!st.items.length) return Muze.toast('Cut out a piece first');
+  if (!st.items.length) return Muze.toast('Paste a cutout in first');
   const W = 1200, H = 1500, foot = 110;
   const c = document.createElement('canvas'); c.width = W; c.height = H + foot;
   const g = c.getContext('2d');
@@ -94,7 +137,7 @@ document.getElementById('save').onclick = async () => {
   g.fillStyle = '#FBF6EC'; g.fillRect(0, H, W, foot);
   g.fillStyle = '#7A6A5D'; g.textAlign = 'center';
   g.font = '700 24px Nunito, sans-serif'; g.fillText(`${theme} · ${Muze.tag}`, W / 2, H + 42);
-  const used = [...new Set(st.items.map(it => it.a))].map(a => `${works[a].t} (${works[a].a})`).join(' · ');
+  const used = [...new Set(st.items.map(it => meta[it.a]).filter(Boolean))].map(w => `${w.t} (${w.a})`).join(' · ');
   g.font = 'italic 18px "Libre Caslon Text", Georgia, serif';
   g.fillText(`Cut from ${used}`.slice(0, 140), W / 2, H + 78);
   Muze.download(c, 'collage');

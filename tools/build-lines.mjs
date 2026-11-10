@@ -13,6 +13,14 @@ const BOOKS = [
   [3026, 'Robert Frost'],
   [16950, 'Christina Rossetti'],
   [8672, 'John Clare'],
+  // Added 10 Nov 2026. Only ever append: the daily order depends on line positions.
+  [2002, 'Elizabeth Barrett Browning', { numbered: true }],
+  [18338, 'Paul Laurence Dunbar', { standardOnly: true }],
+  [8601, 'Alfred Tennyson'],
+  [13650, 'Edward Lear'],
+  [4800, 'Percy Bysshe Shelley'],
+  [109, 'Edna St. Vincent Millay'],
+  [9622, 'William Wordsworth'],
 ];
 const PER_BOOK = 140;
 
@@ -20,7 +28,10 @@ const dir = process.argv[2];
 if (!dir) { console.error('usage: node tools/build-lines.mjs <dir>'); process.exit(1); }
 
 const authors = [], lines = [];
-BOOKS.forEach(([id, author], ai) => {
+// Dialect spellings, used to keep only standard-English lines where a book mixes both (cut into strips
+// out of context, dialect verse can read as caricature).
+const DIALECT = /\b(de|dat|dis|dey|dem|wid|wif|sich|gwine|chile|fu|yo|sho|hyeah|lak|whut|ez|nuff|beneaf|dough|ol['’]|ain['’]t|befo['’]|mo['’]|fo['’])\b|\w['’](?=\s|$|[,.;:!?])|(^|\s)['’]\w|\w['’]\w*ned\b/i;
+BOOKS.forEach(([id, author, opts = {}], ai) => {
   let txt = fs.readFileSync(path.join(dir, `${id}.txt`), 'utf8').replace(/\r/g, '');
   const a = txt.search(/\*\*\* ?START OF/), z = txt.search(/\*\*\* ?END OF/);
   const raw = txt.slice(txt.indexOf('\n', a) + 1, z > 0 ? z : undefined).split('\n');
@@ -33,7 +44,9 @@ BOOKS.forEach(([id, author], ai) => {
     if (len(i - 1) >= 64 || len(i + 1) >= 64) return;
     if (!/^[“"‘'(]?[A-Za-z]/.test(s) || /\d|\[|\]|Gutenberg|CHAPTER|^[A-Z\s.,'’-]+$/.test(s)) return;
     if ((s.match(/[A-Z]/g) || []).length / s.length > 0.25) return;
-    ok.push(s.replace(/^[“"‘'(]+|[”"’')]+$/g, '').replace(/[,;:—-]+$/, ''));
+    if (opts.standardOnly && DIALECT.test(s)) return;
+    // Numbered sonnets ("XX Beloved, ...") put the number at the start of some lines.
+    ok.push((opts.numbered ? s.replace(/^(?:[IVXLC]{2,}|[VXLC])\.?\s+(?=[A-Z])/, '') : s).replace(/^[“"‘'(]+|[”"’')]+$/g, '').replace(/[,;:—-]+$/, ''));
   });
   const uniq = [...new Set(ok)];
   // Skip the front and back matter, then sample evenly.

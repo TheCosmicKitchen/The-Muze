@@ -21,6 +21,23 @@ const BOOKS = [
   [35, 'The Time Machine', 'H. G. Wells'],
   [76, 'Adventures of Huckleberry Finn', 'Mark Twain'],
   [43, 'Strange Case of Dr Jekyll and Mr Hyde', 'Robert Louis Stevenson'],
+  // Added 10 Nov 2026. Only ever append: the daily order depends on page positions.
+  [1400, 'Great Expectations', 'Charles Dickens'],
+  [768, 'Wuthering Heights', 'Emily Brontë'],
+  [2641, 'A Room with a View', 'E. M. Forster'],
+  [120, 'Treasure Island', 'Robert Louis Stevenson'],
+  [36, 'The War of the Worlds', 'H. G. Wells'],
+  [113, 'The Secret Garden', 'Frances Hodgson Burnett'],
+  [55, 'The Wonderful Wizard of Oz', 'L. Frank Baum'],
+  [16, 'Peter Pan', 'J. M. Barrie'],
+  [160, 'The Awakening', 'Kate Chopin'],
+  [2814, 'Dubliners', 'James Joyce'],
+  [215, 'The Call of the Wild', 'Jack London'],
+  [46, 'A Christmas Carol', 'Charles Dickens'],
+  [45, 'Anne of Green Gables', 'L. M. Montgomery'],
+  [219, 'Heart of Darkness', 'Joseph Conrad'],
+  [4217, 'A Portrait of the Artist as a Young Man', 'James Joyce'],
+  [145, 'Middlemarch', 'George Eliot'],
 ];
 const PER_BOOK = 30, MIN = 110, MAX = 165;
 

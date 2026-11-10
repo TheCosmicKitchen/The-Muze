@@ -54,7 +54,8 @@ Muze.header({ title: 'Blackout', another: 'Another page' });
 const GAME = 'blackout';
 
 // Daily pages walk a fixed shuffled order so nobody sees a repeat for over a year.
-const order = Muze.shuffle(PAGES.map((_, i) => i), Muze.rng('muze-blackout-order'));
+// More books joined on day 14 (10 Nov 2026). Earlier days keep the order they had, so nobody's page changed mid-day.
+const order = Muze.shuffle([...Array(Muze.day < 14 ? 393 : PAGES.length).keys()], Muze.rng('muze-blackout-order'));
 const pageIdx = Muze.daily ? order[(Muze.day - 1 + order.length * 100) % order.length] : Math.floor(Muze.rng(Muze.seed)() * PAGES.length);
 const page = PAGES[pageIdx], book = BOOKS[page.b];
 
