@@ -20,8 +20,7 @@
 .piece a{display:flex;justify-content:space-between;align-items:center;color:inherit;text-decoration:none;font:700 16px var(--display);padding:0 4px}
 .piece a span{font:600 13px var(--body);color:var(--muted)}
 .piece a:hover span{color:var(--ink)}
-.empty{background:var(--surface);border-radius:16px;padding:28px 20px;text-align:center;color:var(--muted)}
-.empty b{display:block;font:700 20px var(--display);color:var(--ink);margin-bottom:4px}
+.empty{margin:-4px 0 0;text-align:center;color:var(--muted);font:600 15px var(--body)}
 .todo{display:flex;flex-wrap:wrap;gap:8px}
 .todo a{font:700 14px var(--body);color:var(--ink);text-decoration:none;background:var(--surface);border:2px dashed var(--line);border-radius:999px;padding:6px 14px}
 .todo a:hover{border-color:var(--ink)}
@@ -77,7 +76,7 @@ function render() {
   document.getElementById('share').hidden = document.getElementById('upHead').hidden = !list.length;
   Hall.show(list);
   if (!list.length) {
-    wall.innerHTML = `<div class="empty"><b>Nothing here yet</b>Finish something today and it lands on this wall.</div>`;
+    wall.innerHTML = `<p class="empty">Finish any make and it lands on this wall.</p>`;
     wall.style.columns = 'auto';
   } else wall.style.columns = '';
   list.forEach(p => {
@@ -210,10 +209,22 @@ const Hall = (() => {
       c.fillStyle = '#FFFDF8'; c.fillRect(px, py, tw, 18); c.fillStyle = '#5A4A3C'; c.textAlign = 'center'; c.fillText(f.title, f.x + f.w / 2, py + 14);
     });
     if (!frames.length) {
-      c.setLineDash([12, 9]); c.strokeStyle = '#B79F7C'; c.lineWidth = 4; c.strokeRect(W / 2 - 150, 90, 300, 220); c.setLineDash([]);
-      c.fillStyle = '#FFFDF8'; c.fillRect(W / 2 - 112, 330, 224, 62);
-      c.fillStyle = '#5A4A3C'; c.textAlign = 'center'; c.font = '700 20px Fraunces, Georgia, serif'; c.fillText('Exhibition opening soon', W / 2, 358);
-      c.font = '600 14px Nunito, sans-serif'; c.fillText('Finish something to fill this wall', W / 2, 379);
+      // Nothing yet: an empty gilt frame waiting for the first piece, with a brass plaque for the day.
+      const fw = 420, fh = 270, fx = W / 2 - fw / 2, fy = 52;
+      const glow = c.createRadialGradient(W / 2, fy - 14, 8, W / 2, fy + fh / 2, fw * .95);
+      glow.addColorStop(0, 'rgba(255,244,205,.75)'); glow.addColorStop(1, 'rgba(255,244,205,0)');
+      c.fillStyle = glow; c.fillRect(fx - fw, fy - 40, fw * 3, fh * 2);
+      c.save(); c.shadowColor = 'rgba(50,30,10,.4)'; c.shadowBlur = 18; c.shadowOffsetY = 8; c.fillStyle = '#B98B3A'; c.fillRect(fx - 22, fy - 22, fw + 44, fh + 44); c.restore();
+      c.strokeStyle = '#E2BC6A'; c.lineWidth = 3; c.strokeRect(fx - 14, fy - 14, fw + 28, fh + 28);
+      c.fillStyle = '#FFFDF8'; c.fillRect(fx - 4, fy - 4, fw + 8, fh + 8);
+      c.setLineDash([14, 10]); c.strokeStyle = '#C9BFA9'; c.lineWidth = 3; c.strokeRect(fx + 22, fy + 22, fw - 44, fh - 44); c.setLineDash([]);
+      c.fillStyle = '#5B5045'; c.textAlign = 'center'; c.font = '700 44px Fraunces, Georgia, serif';
+      c.fillText('Your first piece', W / 2, fy + fh / 2 - 6); c.fillText('hangs here', W / 2, fy + fh / 2 + 46);
+      const date = new Date(day + 'T12:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/,/g, '').toUpperCase();
+      c.font = '800 24px Nunito, sans-serif'; const pw = c.measureText(date).width + 48, py = fy + fh + 44;
+      c.save(); c.shadowColor = 'rgba(50,30,10,.3)'; c.shadowBlur = 6; c.shadowOffsetY = 3; c.fillStyle = '#C9A24E'; c.fillRect(W / 2 - pw / 2, py, pw, 44); c.restore();
+      c.strokeStyle = '#8A6B2C'; c.lineWidth = 2; c.strokeRect(W / 2 - pw / 2 + 4, py + 4, pw - 8, 36);
+      c.fillStyle = '#2B211B'; c.fillText(date, W / 2, py + 31);
     }
     // Rope barrier along the wall.
     c.strokeStyle = '#9C2F2B'; c.lineWidth = 4;
@@ -300,12 +311,16 @@ const Hall = (() => {
   }
   async function show(list) {
     const id = ++run;
+    // An empty room can go up straight away, so there's no blank box while fonts load.
+    if (!list.length) { frames = []; folk = []; paintRoom(); g.drawImage(room, 0, 0); }
     await document.fonts.ready;
     const items = (await Promise.all(list.map(p => load(p.img).then(im => ({ ...p, im })).catch(() => null)))).filter(Boolean);
     if (id !== run) return;
     frames = hang(items); paintRoom(); hearts = []; flashes = [];
-    folk = Array.from({ length: Math.min(9, 3 + frames.length) }, (_, i) => make(i));
+    folk = Array.from({ length: frames.length ? Math.min(9, 3 + frames.length) : 2 }, (_, i) => make(i));
     folk.forEach(f => { f.moving = false; f.left = rand(0, 2); });
+    // With nothing up yet, two visitors wait either side of the empty frame.
+    if (!frames.length) folk.forEach((f, i) => { f.x = W / 2 + (i ? 300 : -300); f.y = FLOOR + 96 + i * 30; f.dir = i ? -1 : 1; f.work = { kind: 'look' }; f.left = rand(2, 4); });
     // The guard by the door has seen it all.
     folk.push({ guard: true, x: 44, y: FLOOR + 66, dir: 1, wait: 0, p: 1, phase: 1, shirt: '#2F3B52', skin: Folk.SKINS[1], hat: true, size: SIZE, work: { kind: 'look' }, say: '', sayIn: 0, sayLeft: 0 });
     if (still) { folk.forEach(f => { if (!f.guard && frames.length) { f.piece = frames[Math.floor(Math.random() * frames.length)]; f.x = Math.max(40, Math.min(W - 40, f.piece.x + f.piece.w / 2 + rand(-60, 60))); f.work = { kind: 'look' }; } }); return paint(0); }

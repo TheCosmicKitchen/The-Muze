@@ -58,7 +58,7 @@ document.getElementById('prompt').innerHTML =
 
 const st = Muze.load(GAME) || { names: ['', '', '', '', ''], lines: ['', '', '', '', ''], done: false };
 const walkEl = document.getElementById('walk');
-const NAME_HINTS = ['Name it, e.g. "harbour at six"', 'Name it', 'Name it', 'Name it', 'Name it'];
+const NAME_HINTS = ['e.g. "harbour at six"','Name it', 'Name it', 'Name it', 'Name it'];
 pal.forEach((c, i) => {
   const el = document.createElement('div'); el.className = 'step';
   el.innerHTML = `<div class="chip" style="background:${c}"></div><div class="fields">

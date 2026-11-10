@@ -48,10 +48,21 @@ Muze.header({ title: 'Exquisite Corpse', another: 'Free play panel' });
 const GAME = 'corpse', W = 1200, H = 700, EDGE = 80, FOLD = H - EDGE;
 const PARTS = ['head', 'body', 'legs'];
 const r = Muze.rng(Muze.seed + 'corpse');
-const part = Muze.daily ? (Muze.day - 1) % 3 : Math.floor(r() * 3);
 const isoOf = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const loadPanels = () => { try { return JSON.parse(localStorage.getItem('muze-corpse-panels')) || {}; } catch (e) { return {}; } };
 const panels = loadPanels();
+const st = Muze.load(GAME) || { img: null, done: false };
+// Each person follows their own three days: head first, then the next part after yesterday's panel.
+// Missing a day, or finishing the legs, starts a new creature at the head.
+function dailyPart() {
+  if (panels[Muze.today]) return panels[Muze.today].part;            // already folded today
+  if (Number.isInteger(st.part)) return st.part;                      // started today
+  if (st.img) return (Muze.day - 1) % 3;                               // started today before parts were personal
+  const y = panels[isoOf(-1)];
+  return y && y.part < 2 ? y.part + 1 : 0;
+}
+const part = Muze.daily ? dailyPart() : Math.floor(r() * 3);
+st.part = part;
 const prev = Muze.daily && part > 0 && panels[isoOf(-1)]?.part === part - 1 ? panels[isoOf(-1)] : null;
 
 const HINTS = [
@@ -91,8 +102,7 @@ function fold() {
   bg.fillStyle = '#B9AE9C'; bg.font = '700 20px Nunito, sans-serif'; bg.fillText('fold', 16, FOLD - 10);
 }
 
-const st = Muze.load(GAME) || { img: null, done: false };
-const cv = document.getElementById('cv');
+const cv =document.getElementById('cv');
 const pad = Muze.sketch(cv, { bg: null, onEnd: () => { st.img = pad.toDataURL(); st.done = false; Muze.save(GAME, st); render(); } });
 pad.size = 7;
 if (st.img) pad.load(st.img);
