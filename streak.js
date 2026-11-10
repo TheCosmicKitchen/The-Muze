@@ -84,11 +84,19 @@
 
   // Record that a daily was finished. It counts for the day the page was opened on, which is the
   // day of the puzzle on screen, so finishing just after midnight still counts for that puzzle's day.
-  // Safe to call more than once.
-  function mark(game) {
+  // Hubs pass `day` ('yyyy-mm-dd' or a Date) to fill in finishes found in saved games. Days in the
+  // future or older than the cookie keeps are ignored. Safe to call more than once.
+  function mark(game, day) {
     const bit = GAMES.indexOf(game);
     if (bit < 0) return;
-    const s = read(), key = ymd(LOADED);
+    let when = LOADED;
+    if (day) {
+      const m = typeof day === 'string' && /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+      when = m ? new Date(+m[1], +m[2] - 1, +m[3]) : typeof day.getTime === 'function' ? midnight(day) : null;
+      const today = midnight(new Date());
+      if (!when || isNaN(when) || when > today || when <= addDays(today, -KEEP)) return;
+    }
+    const s = read(), key = ymd(when);
     s.days[key] = (s.days[key] || 0) | (1 << bit);
     for (const site of Object.keys(SITE)) s.best[site] = Math.max(s.best[site] || 0, run(s, SITE[site]).current);
     write(s);
