@@ -36,8 +36,15 @@ const Muze = (() => {
   function load(game) {
     try { const s = JSON.parse(localStorage.getItem(slot(game))); return s && s.seed === seed ? s.st : null; } catch (e) { return null; }
   }
+  // A save that doesn't fit (streak.js has already made what room it can) says so once,
+  // instead of quietly losing the work on the next reload.
+  let saveWarned = false;
   function save(game, st) {
-    try { localStorage.setItem(slot(game), JSON.stringify({ seed, st })); return true; } catch (e) { return false; }
+    try { localStorage.setItem(slot(game), JSON.stringify({ seed, st })); return true; }
+    catch (e) {
+      if (!saveWarned) { saveWarned = true; toast('This device is out of room, so this won\'t be kept. Save the image to keep it.'); }
+      return false;
+    }
   }
   // Keeps finished daily text pieces (poems, stories) so a shelf page can show them later.
   function keep(game, text) {

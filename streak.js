@@ -79,15 +79,91 @@
     return GAMES.filter((_, i) => m & (1 << i));
   }
 
-  // Record that a daily was finished today. Safe to call more than once.
+  // The day this page was opened on. A daily shows that day's puzzle until the page reloads.
+  const LOADED = midnight(new Date());
+
+  // Record that a daily was finished. It counts for the day the page was opened on, which is the
+  // day of the puzzle on screen, so finishing just after midnight still counts for that puzzle's day.
+  // Safe to call more than once.
   function mark(game) {
     const bit = GAMES.indexOf(game);
     if (bit < 0) return;
-    const s = read(), key = ymd(midnight(new Date()));
+    const s = read(), key = ymd(LOADED);
     s.days[key] = (s.days[key] || 0) | (1 << bit);
     for (const site of Object.keys(SITE)) s.best[site] = Math.max(s.best[site] || 0, run(s, SITE[site]).current);
     write(s);
   }
+
+  // ---- Keeping saves safe. This file is on every page of both sites, so these guards cover every game. ----
+  //
+  // 1. A new day. A daily page left open overnight (phones keep tabs for days) would still show
+  //    yesterday's puzzle. When it's looked at again on a later day, reload it to today's.
+  //    Pages with a #seed (endless, free play) are left alone.
+  //
+  // 2. Two tabs of the same page. Every save goes through localStorage. The tab opened or looked at
+  //    most recently owns saving: a tab in the background that isn't the owner doesn't write, so an
+  //    old board's timer can't overwrite newer progress. And if another tab changes a key this tab has
+  //    read or written, this tab's copy is out of date: it stops writing that key and reloads the next
+  //    time it's looked at.
+  //
+  // 3. A full shelf. Both sites share one origin, so one localStorage quota (about 5 MB), and the
+  //    Muze keeps pictures in it. When a save doesn't fit, make room by dropping the oldest gallery
+  //    day (never today's), then free-play drawings, and try again.
+  const isDaily = () => !location.hash || location.hash === '#';
+  const seen = new Map(), stale = new Set();   // key -> the value this tab last read or wrote
+  const OWNER = 'kitchen-tab', TAB = Math.random().toString(36).slice(2);
+  let ls = null, claim = () => {};
+  try { ls = window.localStorage; } catch (e) {}
+  if (ls) {
+    const setItem = Storage.prototype.setItem, getItem = Storage.prototype.getItem;
+    Storage.prototype.getItem = function (k) {
+      const v = getItem.call(this, k);
+      if (this === ls && !seen.has(String(k))) seen.set(String(k), v);
+      return v;
+    };
+    const raw = (k, v) => setItem.call(ls, k, v);
+    const dash = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    // Free one thing that can go, other than the key being written. True if something went.
+    const freeOne = except => {
+      try {
+        if (except !== 'muze-gallery') {
+          const g = JSON.parse(ls.getItem('muze-gallery') || 'null');
+          const old = g && Object.keys(g).sort().filter(d => d !== dash(new Date()) && d !== dash(LOADED))[0];
+          if (old) { delete g[old]; raw('muze-gallery', JSON.stringify(g)); return true; }
+        }
+        for (let i = 0; i < ls.length; i++) {
+          const k = ls.key(i);
+          if (k !== except && /^muze-.+-free$/.test(k)) { ls.removeItem(k); return true; }
+        }
+      } catch (e) {}
+      return false;
+    };
+    Storage.prototype.setItem = function (k, v) {
+      if (this !== ls) return setItem.call(this, k, v);
+      k = String(k); v = String(v);
+      if (stale.has(k)) return;               // another tab has newer data here; leave it be
+      if (document.hidden && getItem.call(ls, OWNER) !== TAB) return;   // a newer tab owns saving now
+      for (;;) {
+        try { raw(k, v); break; }
+        catch (e) { if (!freeOne(k)) throw e; } // nothing left to free: callers see the error as before
+      }
+      seen.set(k, v);
+    };
+    addEventListener('storage', e => {
+      if (e.storageArea !== ls) return;
+      if (e.key === null) { seen.forEach((_, k) => stale.add(k)); return; }   // storage cleared elsewhere
+      if (seen.has(e.key) && e.newValue !== seen.get(e.key)) stale.add(e.key);
+    });
+    claim = () => { try { raw(OWNER, TAB); } catch (e) {} };
+    claim();
+  }
+  function freshen() {
+    if (stale.size || (isDaily() && +midnight(new Date()) !== +LOADED)) location.reload();
+    else claim();
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) freshen(); });
+  addEventListener('pageshow', e => { if (e.persisted) freshen(); });
+  addEventListener('focus', freshen);
 
   window.Kitchen = { mark, streak, week, doneOn, GAMES };
 })();
