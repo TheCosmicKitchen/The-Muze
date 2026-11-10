@@ -69,7 +69,8 @@ Muze.header({ title: 'Haiku Hunt', another: 'Another page' });
 const GAME = 'haiku', TARGET = [5, 7, 5];
 
 // Same shuffled order as Blackout, offset by half a year so the pages differ.
-const order = Muze.shuffle(PAGES.map((_, i) => i), Muze.rng('muze-blackout-order'));
+// More books joined on day 14 (10 Nov 2026). Earlier days keep the order they had, so nobody's page changed mid-day.
+const order = Muze.shuffle([...Array(Muze.day < 14 ? 393 : PAGES.length).keys()], Muze.rng('muze-blackout-order'));
 const pageIdx = Muze.daily ? order[(Muze.day - 1 + 190) % order.length] : Math.floor(Muze.rng(Muze.seed + 'haiku')() * PAGES.length);
 const page = PAGES[pageIdx], book = BOOKS[page.b];
 document.getElementById('prompt').innerHTML =

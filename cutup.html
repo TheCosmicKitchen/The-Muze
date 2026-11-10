@@ -54,7 +54,8 @@ const THEMES = ['Write about a door', 'Write about the sea', 'Write about someon
 // Eighteen strips a day, no more than three from any one poet.
 const r = Muze.rng(Muze.seed + 'cutup');
 const per = {}, strips = [];
-for (const i of Muze.shuffle(LINES.map((_, i) => i), r)) {
+// More poets joined on day 14 (10 Nov 2026). Earlier days keep the strips they had.
+for (const i of Muze.shuffle([...Array(Muze.daily && Muze.day < 14 ? 1266 : LINES.length).keys()], r)) {
   const a = LINES[i].a; if ((per[a] = (per[a] || 0) + 1) > 3) continue;
   strips.push(i); if (strips.length === 18) break;
 }

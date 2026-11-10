@@ -88,6 +88,7 @@ const CutPaste = (() => {
     const lg = cv.getContext('2d');
 
     o.sources.forEach((s, i) => {
+      if (s.tray) return; // ready-cut pictures are pasted whole with paste(), not cut from the viewer
       const b = el('button', 'cp-thumb', `<img alt="" src="${s.src}" loading="lazy">`);
       b.setAttribute('aria-pressed', i === 0); b.setAttribute('aria-label', s.label);
       b.onclick = () => { cur = i; o.els.thumbs.querySelectorAll('.cp-thumb').forEach(x => x.setAttribute('aria-pressed', x === b)); showSource(); };
@@ -225,6 +226,22 @@ const CutPaste = (() => {
       const W = board.clientWidth, H = board.clientHeight, u = W / o.base;
       it.s = +Math.min(1, 0.8 * W / (c.width * u), 0.8 * H / (c.height * u)).toFixed(3);
       it.x = 0.5 + (Math.random() - 0.5) * 0.2; it.y = 0.5 + (Math.random() - 0.5) * 0.2;
+      st.items.push(it); select(it); change();
+    }
+    // Paste a whole source in one go: a ready-cut figure at a handy size, or (cover) a backdrop that
+    // fills the board and goes behind everything else.
+    async function paste(i, { cover = false } = {}) {
+      const it = { id: uid(), k: 'p', a: i, poly: [[0, 0], [1, 0], [1, 1], [0, 1]], x: 0.5, y: 0.5, s: 1, r: 0, f: 1, v: 1, z: topZ() + 1 };
+      const c = await cut(it).catch(() => null);
+      if (!c) return Muze.toast('Couldn\'t load that picture');
+      const W = board.clientWidth, H = board.clientHeight, u = W / o.base;
+      if (cover) {
+        st.items.forEach(q => { q.z = (q.z || 0) + 1; }); it.z = 1;
+        it.s = +Math.max(W / (c.width * u), H / (c.height * u)).toFixed(3);
+      } else {
+        it.s = +Math.min(0.42 * W / (c.width * u), 0.5 * H / (c.height * u)).toFixed(3);
+        it.x = +(0.5 + (Math.random() - 0.5) * 0.3).toFixed(3); it.y = +(0.5 + (Math.random() - 0.5) * 0.3).toFixed(3);
+      }
       st.items.push(it); select(it); change();
     }
 
@@ -483,7 +500,7 @@ const CutPaste = (() => {
     }
 
     showSource(); setHint(); sync();
-    return { draw, sync, select, get items() { return st.items; }, sources: o.sources };
+    return { draw, sync, select, paste, get current() { return cur; }, get items() { return st.items; }, sources: o.sources };
   }
   return { create };
 })();
