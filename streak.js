@@ -9,9 +9,9 @@
   const NAME = 'ck1', KEEP = 42, MAX_AGE = 400 * 86400;
   const GAMES = ['hex', 'sb', 'jg', 'ws', 'hk', 'cl', 'st', 'sm', 'ta', 'la',
     'blackout', 'haiku', 'cutup', 'fridge', 'sixwords', 'palette', 'strip', 'paint', 'oneline', 'shape', 'corpse', 'pixel', 'collage', 'vale',
-    'ts'];
+    'ts', 'ww'];
   // Which site each game belongs to.
-  const PUZZ = ['hex', 'sb', 'jg', 'ws', 'hk', 'cl', 'st', 'sm', 'ta', 'la', 'ts'];
+  const PUZZ = ['hex', 'sb', 'jg', 'ws', 'hk', 'cl', 'st', 'sm', 'ta', 'la', 'ts', 'ww'];
   const bits = list => list.reduce((m, g) => m | (1 << GAMES.indexOf(g)), 0);
   const SITE = { puzz: bits(PUZZ), muze: bits(GAMES.filter(g => !PUZZ.includes(g))) };
 
