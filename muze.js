@@ -82,7 +82,7 @@ const Muze = (() => {
     ['pixel', 'Pixel Postcard'], ['collage', 'Collage'], ['vale', 'Vale'],
   ].map(([id, title]) => ({ id, title, page: `${id}.html` }));
 
-  // Today's gallery: a small JPEG of each finished daily piece, keyed by date then game.
+  // Today's gallery: a JPEG of each finished daily piece, keyed by date then game.
   // addToGallery() reruns this page's own "Save image" step, and download() keeps the
   // picture instead of downloading it, so every make reuses the exporter it already has.
   const GALLERY = 'muze-gallery';
@@ -92,51 +92,50 @@ const Muze = (() => {
     const W = Math.min(900, canvas.width), H = Math.round(canvas.height * W / canvas.width);
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d'); g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, W, H); g.drawImage(canvas, 0, 0, W, H);
+    const piece = { img: c.toDataURL('image/jpeg', 0.82), at: Date.now() };
+    keepForGood(today, game, piece);
     const all = gallery();
-    (all[today] = all[today] || {})[game] = { img: c.toDataURL('image/jpeg', 0.82), at: Date.now() };
-    // Keep the three most recent days; drop older ones first if storage is tight.
+    (all[today] = all[today] || {})[game] = piece;
+    // localStorage keeps the three most recent days for the home page; drop older ones first if it's tight.
+    // The archive below already has the piece, so a full localStorage doesn't lose it.
     Object.keys(all).sort().slice(0, -3).forEach(d => delete all[d]);
     for (;;) {
-      try { localStorage.setItem(GALLERY, JSON.stringify(all)); share(game, canvas); return true; }
-      catch (e) { const old = Object.keys(all).sort().find(d => d !== today); if (!old) return false; delete all[old]; }
+      try { localStorage.setItem(GALLERY, JSON.stringify(all)); return true; }
+      catch (e) { const old = Object.keys(all).sort().find(d => d !== today); if (!old) return true; delete all[old]; }
     }
   }
 
-  // Everyone's wall: a signed-in maker's finished daily pieces are also sent to a shared Supabase table
-  // (schema: supabase/migrations/*_muze_*.sql) that keeps every piece. Guests send nothing: their
-  // pieces stay on the device. It's a small JPEG, not the piece's source data: every make draws
-  // differently, and one picture shows them all. Signed-in makers can turn it off from the gallery.
-  const ART = 'https://gbryzpjwsuluwfggdldb.supabase.co/rest/v1/', ART_KEY = 'sb_publishable_q-S2wKZXRdAv0zqKEjs9pQ_4hrO59xE';
-  const ART_HEAD = { apikey: ART_KEY, 'Content-Type': 'application/json' }, AUTH = 'sb-gbryzpjwsuluwfggdldb-auth-token';
-  // The signed-in session's access token (stored by supabase-js), or null for a guest or an expired session.
-  function token() {
-    try { const s = JSON.parse(localStorage.getItem(AUTH)); return s && s.access_token && s.expires_at * 1000 > Date.now() ? s.access_token : null; }
-    catch (e) { return null; }
+  // Every finished piece, kept for good on this device in IndexedDB ('muze' database, 'pieces' store,
+  // one row per day and make). Browsers give IndexedDB far more room than localStorage, and
+  // navigator.storage.persist() asks them never to clear it to free space.
+  const ARCHIVE = (() => {
+    let db;
+    const open = () => db || (db = new Promise((res, rej) => {
+      const r = indexedDB.open('muze', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('pieces', { keyPath: 'key' });
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    }));
+    const run = async (mode, fn) => {
+      const d = await open();
+      return new Promise((res, rej) => {
+        const t = d.transaction('pieces', mode), req = fn(t.objectStore('pieces'));
+        t.oncomplete = () => res(req.result); t.onerror = () => rej(t.error);
+      });
+    };
+    return { put: row => run('readwrite', s => s.put(row)), all: () => run('readonly', s => s.getAll()) };
+  })();
+  function keepForGood(day, game, piece) {
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+    return ARCHIVE.put({ key: `${day}:${game}`, day, game, ...piece }).catch(() => {});
   }
-  const sharing = {
-    get on() { try { return localStorage.getItem('muze-share') !== 'off'; } catch (e) { return false; } },
-    set on(v) { try { localStorage.setItem('muze-share', v ? 'on' : 'off'); } catch (e) {} },
-  };
-  function share(game, canvas) {
-    const t = token();
-    if (!t || !sharing.on) return;
-    let sent; try { sent = JSON.parse(localStorage.getItem('muze-shared')) || {}; } catch (e) { sent = {}; }
-    if (sent.day !== today) sent = { day: today, games: [] };
-    if (sent.games.includes(game)) return;
-    // At most 480 px on the long side; lower the quality until it fits the table's 60 KB limit.
-    const k = Math.min(1, 480 / Math.max(canvas.width, canvas.height));
-    const c = document.createElement('canvas'); c.width = Math.round(canvas.width * k); c.height = Math.round(canvas.height * k);
-    const g = c.getContext('2d'); g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, c.width, c.height); g.drawImage(canvas, 0, 0, c.width, c.height);
-    let img; for (const q of [0.75, 0.6, 0.45, 0.3]) { img = c.toDataURL('image/jpeg', q); if (img.length <= 60000) break; }
-    if (img.length > 60000) return;
-    fetch(ART + 'muze_art', { method: 'POST', headers: { ...ART_HEAD, Authorization: `Bearer ${t}`, Prefer: 'return=minimal' }, body: JSON.stringify({ day: today, game, img }), keepalive: true })
-      .then(r => { if (!r.ok) return; sent.games.push(game); try { localStorage.setItem('muze-shared', JSON.stringify(sent)); } catch (e) {} })
-      .catch(() => {});
-  }
-  // Newest pieces from everyone: { art: [{ id, day, game, img, at }] }. Pass the last id for more.
-  function wall(before) {
-    return fetch(ART + 'rpc/muze_recent_art', { method: 'POST', headers: ART_HEAD, body: JSON.stringify({ p_limit: 24, p_before: before || null }) })
-      .then(r => r.ok ? r.json() : null).catch(() => null);
+  // Every day's pieces, { date: { game: { img, at } } }. Pieces still only in localStorage (made before
+  // the archive existed) are copied into it, so they're kept for good too.
+  async function archive() {
+    const out = {};
+    try { (await ARCHIVE.all()).forEach(r => { (out[r.day] = out[r.day] || {})[r.game] = { img: r.img, at: r.at }; }); } catch (e) {}
+    for (const [d, games] of Object.entries(gallery())) for (const [g, p] of Object.entries(games))
+      if (!(out[d] && out[d][g] && out[d][g].at >= p.at)) { (out[d] = out[d] || {})[g] = p; keepForGood(d, g, p); }
+    return out;
   }
   async function addToGallery(game, render) {
     if (!daily) return;
@@ -303,6 +302,6 @@ const Muze = (() => {
     'a heart|a duck|a slice of pizza|a flower in a pot|a hedgehog|a skull|an anchor|a crab|a planet with rings|a cherry|a bell').split('|');
 
   return { today, daily, seed, day, rng, pick, shuffle, load, save, keep, header, toast, copy, download, tag, css,
-    GAMES, gallery, addToGallery, wall, sharing, signedIn: () => !!token(),
+    GAMES, gallery, archive, addToGallery,
     sketch, card, syllables, guessSyllables, PALETTES, SUBJECTS };
 })();
