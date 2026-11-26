@@ -14,6 +14,8 @@
 .mast{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
 h1{font:600 52px/0.95 var(--display);letter-spacing:-.02em}
 h1 .z{display:inline-block}
+/* Pixel Patisserie logo at 1.5x, drawn without smoothing. */
+h1 .logo{display:block;width:96px;height:96px;image-rendering:pixelated}
 h1 .z{color:var(--f0);transform:translateY(-4px) rotate(-8deg)}
 .date{color:var(--muted);font-size:14px}
 .tag{color:var(--muted);margin:0}
@@ -57,7 +59,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:8px}
 <body>
 <div class="wrap">
   <div class="mast">
-    <h1>The Mu<span class="z">z</span>e</h1>
+    <h1><img class="logo" src="sprites/muze-logo.png" alt="The Muze" width="64" height="64"></h1>
     <div class="date" id="date"></div>
   </div>
   <p class="tag">Something small to make every day, free. No wrong answers, no scores.</p>
