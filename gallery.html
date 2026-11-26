@@ -52,7 +52,7 @@
   <div class="everyone" id="everyone"></div>
   <div class="tools"><button class="btn ghost" id="wallMore" hidden>Show more</button></div>
   <label class="optin"><input type="checkbox" id="shareMine"> Also put my finished dailies on everyone's wall (no name attached)</label>
-  <p class="foot">Pieces land here when you press a make's finish button · your gallery stays on this device for three days · everyone's wall is anonymous and clears itself after a few days</p>
+  <p class="foot">Pieces land here when you press a make's finish button · your gallery stays on this device for three days · everyone's wall is anonymous and keeps every piece</p>
 </div>
 <script src="streak.js"></script>
 <script src="muze.js"></script>
@@ -350,7 +350,7 @@ const Hall = (() => {
 })();
 render();
 
-// Everyone's wall: the newest pieces anyone finished, anonymously, for the last few days.
+// Everyone's wall: every piece anyone has finished, anonymously, newest first.
 const wallEl = document.getElementById('everyone'), more = document.getElementById('wallMore'), note = document.getElementById('wallNote');
 const titleOf = Object.fromEntries(Muze.GAMES.map(g => [g.id, g]));
 let lastId = null;
@@ -359,7 +359,7 @@ async function loadWall() {
   const r = await Muze.wall(lastId);
   more.disabled = false;
   if (!r) { if (!lastId) note.textContent = "Everyone's wall couldn't load right now."; return; }
-  if (!lastId) note.textContent = r.art.length ? `The newest pieces from everyone, kept for ${r.days} days. No names, no accounts.` : `Nothing on everyone's wall yet. Pieces stay up for ${r.days} days.`;
+  if (!lastId) note.textContent = r.art.length ? 'Everything anyone has made, newest first. No names, no accounts.' : "Nothing on everyone's wall yet. Finish a daily and yours goes up first.";
   r.art.forEach(a => {
     const g = titleOf[a.game] || { title: a.game, page: '#' }, el = document.createElement('figure');
     el.innerHTML = `<img loading="lazy" alt=""><figcaption><a></a><span></span></figcaption>`;

@@ -103,7 +103,7 @@ const Muze = (() => {
   }
 
   // Everyone's wall: each finished daily piece is also sent, anonymously, to a shared Supabase table
-  // (schema: supabase/migrations/*_muze_art.sql) that keeps the last few days and deletes the rest.
+  // (schema: supabase/migrations/*_muze_art*.sql) that keeps every piece.
   // It's a small JPEG, not the piece's source data: every make draws differently, and one picture
   // shows them all. Nothing identifies who made it. Turn it off from the gallery page.
   const ART = 'https://gbryzpjwsuluwfggdldb.supabase.co/rest/v1/', ART_KEY = 'sb_publishable_q-S2wKZXRdAv0zqKEjs9pQ_4hrO59xE';
@@ -127,7 +127,7 @@ const Muze = (() => {
       .then(r => { if (!r.ok) return; sent.games.push(game); try { localStorage.setItem('muze-shared', JSON.stringify(sent)); } catch (e) {} })
       .catch(() => {});
   }
-  // Newest pieces from everyone: { days, art: [{ id, day, game, img, at }] }. Pass the last id for more.
+  // Newest pieces from everyone: { art: [{ id, day, game, img, at }] }. Pass the last id for more.
   function wall(before) {
     return fetch(ART + 'rpc/muze_recent_art', { method: 'POST', headers: ART_HEAD, body: JSON.stringify({ p_limit: 24, p_before: before || null }) })
       .then(r => r.ok ? r.json() : null).catch(() => null);
