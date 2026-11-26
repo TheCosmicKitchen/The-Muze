@@ -102,18 +102,24 @@ const Muze = (() => {
     }
   }
 
-  // Everyone's wall: each finished daily piece is also sent, anonymously, to a shared Supabase table
-  // (schema: supabase/migrations/*_muze_art*.sql) that keeps every piece.
-  // It's a small JPEG, not the piece's source data: every make draws differently, and one picture
-  // shows them all. Nothing identifies who made it. Turn it off from the gallery page.
+  // Everyone's wall: a signed-in maker's finished daily pieces are also sent to a shared Supabase table
+  // (schema: supabase/migrations/*_muze_*.sql) that keeps every piece. Guests send nothing: their
+  // pieces stay on the device. It's a small JPEG, not the piece's source data: every make draws
+  // differently, and one picture shows them all. Signed-in makers can turn it off from the gallery.
   const ART = 'https://gbryzpjwsuluwfggdldb.supabase.co/rest/v1/', ART_KEY = 'sb_publishable_q-S2wKZXRdAv0zqKEjs9pQ_4hrO59xE';
-  const ART_HEAD = { apikey: ART_KEY, 'Content-Type': 'application/json' };
+  const ART_HEAD = { apikey: ART_KEY, 'Content-Type': 'application/json' }, AUTH = 'sb-gbryzpjwsuluwfggdldb-auth-token';
+  // The signed-in session's access token (stored by supabase-js), or null for a guest or an expired session.
+  function token() {
+    try { const s = JSON.parse(localStorage.getItem(AUTH)); return s && s.access_token && s.expires_at * 1000 > Date.now() ? s.access_token : null; }
+    catch (e) { return null; }
+  }
   const sharing = {
     get on() { try { return localStorage.getItem('muze-share') !== 'off'; } catch (e) { return false; } },
     set on(v) { try { localStorage.setItem('muze-share', v ? 'on' : 'off'); } catch (e) {} },
   };
   function share(game, canvas) {
-    if (!sharing.on) return;
+    const t = token();
+    if (!t || !sharing.on) return;
     let sent; try { sent = JSON.parse(localStorage.getItem('muze-shared')) || {}; } catch (e) { sent = {}; }
     if (sent.day !== today) sent = { day: today, games: [] };
     if (sent.games.includes(game)) return;
@@ -123,7 +129,7 @@ const Muze = (() => {
     const g = c.getContext('2d'); g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, c.width, c.height); g.drawImage(canvas, 0, 0, c.width, c.height);
     let img; for (const q of [0.75, 0.6, 0.45, 0.3]) { img = c.toDataURL('image/jpeg', q); if (img.length <= 60000) break; }
     if (img.length > 60000) return;
-    fetch(ART + 'muze_art', { method: 'POST', headers: { ...ART_HEAD, Prefer: 'return=minimal' }, body: JSON.stringify({ day: today, game, img }), keepalive: true })
+    fetch(ART + 'muze_art', { method: 'POST', headers: { ...ART_HEAD, Authorization: `Bearer ${t}`, Prefer: 'return=minimal' }, body: JSON.stringify({ day: today, game, img }), keepalive: true })
       .then(r => { if (!r.ok) return; sent.games.push(game); try { localStorage.setItem('muze-shared', JSON.stringify(sent)); } catch (e) {} })
       .catch(() => {});
   }
@@ -297,6 +303,6 @@ const Muze = (() => {
     'a heart|a duck|a slice of pizza|a flower in a pot|a hedgehog|a skull|an anchor|a crab|a planet with rings|a cherry|a bell').split('|');
 
   return { today, daily, seed, day, rng, pick, shuffle, load, save, keep, header, toast, copy, download, tag, css,
-    GAMES, gallery, addToGallery, wall, sharing,
+    GAMES, gallery, addToGallery, wall, sharing, signedIn: () => !!token(),
     sketch, card, syllables, guessSyllables, PALETTES, SUBJECTS };
 })();
