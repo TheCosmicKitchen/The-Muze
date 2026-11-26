@@ -47,12 +47,12 @@
   <div class="wall" id="wall"></div>
   <div class="sect" id="todoHead">Still to make today</div>
   <div class="todo" id="todo"></div>
-  <div class="sect" id="wallHead">Everyone's wall</div>
-  <p class="empty" id="wallNote">Loading what everyone made…</p>
+  <div class="sect" id="wallHead" hidden>Everyone's wall</div>
+  <p class="empty" id="wallNote" hidden></p>
   <div class="everyone" id="everyone"></div>
   <div class="tools"><button class="btn ghost" id="wallMore" hidden>Show more</button></div>
-  <label class="optin"><input type="checkbox" id="shareMine"> Also put my finished dailies on everyone's wall (no name attached)</label>
-  <p class="foot">Pieces land here when you press a make's finish button · your gallery stays on this device for three days · everyone's wall is anonymous and keeps every piece</p>
+  <label class="optin" id="optin" hidden><input type="checkbox" id="shareMine"> Also put my finished dailies on everyone's wall</label>
+  <p class="foot">Pieces land here when you press a make's finish button · everything stays on this device for three days</p>
 </div>
 <script src="streak.js"></script>
 <script src="muze.js"></script>
@@ -350,7 +350,7 @@ const Hall = (() => {
 })();
 render();
 
-// Everyone's wall: every piece anyone has finished, anonymously, newest first.
+// Everyone's wall: pieces signed-in makers have shared, newest first. Hidden until there are some.
 const wallEl = document.getElementById('everyone'), more = document.getElementById('wallMore'), note = document.getElementById('wallNote');
 const titleOf = Object.fromEntries(Muze.GAMES.map(g => [g.id, g]));
 let lastId = null;
@@ -358,8 +358,8 @@ async function loadWall() {
   more.disabled = true;
   const r = await Muze.wall(lastId);
   more.disabled = false;
-  if (!r) { if (!lastId) note.textContent = "Everyone's wall couldn't load right now."; return; }
-  if (!lastId) note.textContent = r.art.length ? 'Everything anyone has made, newest first. No names, no accounts.' : "Nothing on everyone's wall yet. Finish a daily and yours goes up first.";
+  if (!r || (!lastId && !r.art.length)) return;
+  if (!lastId) { note.textContent = 'Pieces from makers who signed in and shared them, newest first.'; note.hidden = document.getElementById('wallHead').hidden = false; }
   r.art.forEach(a => {
     const g = titleOf[a.game] || { title: a.game, page: '#' }, el = document.createElement('figure');
     el.innerHTML = `<img loading="lazy" alt=""><figcaption><a></a><span></span></figcaption>`;
@@ -374,6 +374,7 @@ async function loadWall() {
 more.onclick = loadWall;
 const optin = document.getElementById('shareMine');
 optin.checked = Muze.sharing.on;
+document.getElementById('optin').hidden = !Muze.signedIn();
 optin.onchange = () => { Muze.sharing.on = optin.checked; Muze.toast(optin.checked ? "Your next finished pieces go on everyone's wall" : 'Your pieces stay on this device only'); };
 loadWall();
 </script>

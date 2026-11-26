@@ -45,4 +45,6 @@ Streaks live in `streak.js` (the same file in The Puzz and The Muze; keep both c
 
 ## Everyone's wall (Supabase)
 
+Guests upload nothing: their pieces stay on the device. Since `20261126000400_no_guest_writes.sql` only a signed-in user (Supabase Auth) can insert, and `muze.js` only sends when there's a session. The section below describes what a signed-in maker's upload looks like.
+
 When a daily piece lands in the gallery, `muze.js` also sends a JPEG of it (at most 480 px, under 60 KB) to a Supabase project (`puzz-muze`, free plan), with just the day and the make. No account and no device id; the gallery has a checkbox to stop sharing. Browsers can only insert; they read through `muze_recent_art()`, newest first. Every piece is kept for now (a 7-day pg_cron age-out was built and then switched off in `supabase/migrations/20261126000300_muze_art_keep_forever.sql`; bring it back if storage gets tight). At about 25 KB a piece, the free plan's 500 MB holds roughly 20,000 pieces. A picture rather than each make's source data, because every make draws differently and the gallery already reduces them all to one image. It lives in a text column rather than Supabase Storage, so any later cleanup is a single DELETE.
