@@ -14,6 +14,7 @@
 #hall{display:block;width:100%;height:auto}
 .days{display:flex;gap:6px;flex-wrap:wrap}
 .days .btn{min-height:34px;padding:4px 14px;font-size:14px}
+.days select{min-height:34px;border-radius:999px;padding:4px 12px;font:600 14px var(--body);background:var(--surface);color:var(--ink);border:2px solid var(--line)}
 .wall{columns:2 280px;column-gap:14px}
 .piece{break-inside:avoid;margin:0 0 14px;background:var(--surface);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px}
 .piece img{width:100%;height:auto;display:block;border-radius:8px;background:#fff}
@@ -24,12 +25,6 @@
 .todo{display:flex;flex-wrap:wrap;gap:8px}
 .todo a{font:700 14px var(--body);color:var(--ink);text-decoration:none;background:var(--surface);border:2px dashed var(--line);border-radius:999px;padding:6px 14px}
 .todo a:hover{border-color:var(--ink)}
-.everyone{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
-.everyone figure{margin:0;background:var(--surface);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:6px}
-.everyone img{width:100%;height:auto;display:block;border-radius:6px;background:#fff}
-.everyone figcaption{font:600 12px var(--body);color:var(--muted);display:flex;justify-content:space-between;gap:6px}
-.everyone figcaption a{color:var(--ink);text-decoration:none;font-weight:700}
-.optin{display:flex;gap:8px;align-items:center;font:600 14px var(--body);color:var(--muted)}
 .sect{font:700 12px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:6px 0 -4px}
 </style>
 </head>
@@ -47,12 +42,7 @@
   <div class="wall" id="wall"></div>
   <div class="sect" id="todoHead">Still to make today</div>
   <div class="todo" id="todo"></div>
-  <div class="sect" id="wallHead" hidden>Everyone's wall</div>
-  <p class="empty" id="wallNote" hidden></p>
-  <div class="everyone" id="everyone"></div>
-  <div class="tools"><button class="btn ghost" id="wallMore" hidden>Show more</button></div>
-  <label class="optin" id="optin" hidden><input type="checkbox" id="shareMine"> Also put my finished dailies on everyone's wall</label>
-  <p class="foot">Pieces land here when you press a make's finish button · everything stays on this device for three days</p>
+  <p class="foot">Pieces land here when you press a make's finish button · every piece is kept on this device, so clearing this site's data clears them too</p>
 </div>
 <script src="streak.js"></script>
 <script src="muze.js"></script>
@@ -60,8 +50,9 @@
 <script>
 Muze.header({ title: 'Today\'s gallery', another: false });
 const SITE = 'thecosmickitchen.github.io/The-Muze';
-const all = Muze.gallery();
-const dates = [...new Set([Muze.today, ...Object.keys(all)])].sort().reverse();
+// The last three days come straight from localStorage; every older day arrives from the archive a moment later.
+let all = Muze.gallery();
+let dates = [...new Set([Muze.today, ...Object.keys(all)])].sort().reverse();
 let day = Muze.today;
 
 const fmt = d => {
@@ -76,11 +67,18 @@ const pieces = () => Muze.GAMES.filter(g => all[day] && all[day][g.id]).map(g =>
 function render() {
   const days = document.getElementById('days');
   days.hidden = dates.length < 2; days.innerHTML = '';
-  dates.forEach(d => {
+  // The newest week as buttons; anything older in a dropdown.
+  dates.slice(0, 7).forEach(d => {
     const b = document.createElement('button'); b.className = 'btn'; b.textContent = fmt(d);
     b.setAttribute('aria-pressed', d === day); b.onclick = () => { day = d; render(); };
     days.append(b);
   });
+  if (dates.length > 7) {
+    const s = document.createElement('select'); s.setAttribute('aria-label', 'An earlier day');
+    s.innerHTML = `<option value="">Earlier…</option>` + dates.slice(7).map(d => `<option value="${d}"${d === day ? ' selected' : ''}>${fmt(d)}</option>`).join('');
+    s.onchange = () => { if (s.value) { day = s.value; render(); } };
+    days.append(s);
+  }
   document.querySelector('h1').textContent = day === Muze.today ? 'Today\'s gallery' : `Gallery · ${fmt(day)}`;
   const list = pieces(), wall = document.getElementById('wall');
   wall.innerHTML = '';
@@ -349,34 +347,11 @@ const Hall = (() => {
   return { show };
 })();
 render();
-
-// Everyone's wall: pieces signed-in makers have shared, newest first. Hidden until there are some.
-const wallEl = document.getElementById('everyone'), more = document.getElementById('wallMore'), note = document.getElementById('wallNote');
-const titleOf = Object.fromEntries(Muze.GAMES.map(g => [g.id, g]));
-let lastId = null;
-async function loadWall() {
-  more.disabled = true;
-  const r = await Muze.wall(lastId);
-  more.disabled = false;
-  if (!r || (!lastId && !r.art.length)) return;
-  if (!lastId) { note.textContent = 'Pieces from makers who signed in and shared them, newest first.'; note.hidden = document.getElementById('wallHead').hidden = false; }
-  r.art.forEach(a => {
-    const g = titleOf[a.game] || { title: a.game, page: '#' }, el = document.createElement('figure');
-    el.innerHTML = `<img loading="lazy" alt=""><figcaption><a></a><span></span></figcaption>`;
-    el.querySelector('img').src = a.img; el.querySelector('img').alt = g.title;
-    el.querySelector('a').textContent = g.title; el.querySelector('a').href = g.page;
-    el.querySelector('span').textContent = fmt(a.day);
-    wallEl.append(el);
-  });
-  if (r.art.length) lastId = r.art[r.art.length - 1].id;
-  more.hidden = r.art.length < 24;
-}
-more.onclick = loadWall;
-const optin = document.getElementById('shareMine');
-optin.checked = Muze.sharing.on;
-document.getElementById('optin').hidden = !Muze.signedIn();
-optin.onchange = () => { Muze.sharing.on = optin.checked; Muze.toast(optin.checked ? "Your next finished pieces go on everyone's wall" : 'Your pieces stay on this device only'); };
-loadWall();
+Muze.archive().then(a => {
+  const count = g => Object.values(g).reduce((n, d) => n + Object.keys(d).length, 0);
+  if (count(a) === count(all)) return;   // nothing older than localStorage's three days: leave the hall as it is
+  all = a; dates = [...new Set([Muze.today, ...Object.keys(all)])].sort().reverse(); render();
+});
 </script>
 </body>
 </html>
