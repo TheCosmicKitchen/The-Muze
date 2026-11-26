@@ -24,6 +24,12 @@
 .todo{display:flex;flex-wrap:wrap;gap:8px}
 .todo a{font:700 14px var(--body);color:var(--ink);text-decoration:none;background:var(--surface);border:2px dashed var(--line);border-radius:999px;padding:6px 14px}
 .todo a:hover{border-color:var(--ink)}
+.everyone{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.everyone figure{margin:0;background:var(--surface);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:6px}
+.everyone img{width:100%;height:auto;display:block;border-radius:6px;background:#fff}
+.everyone figcaption{font:600 12px var(--body);color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.everyone figcaption a{color:var(--ink);text-decoration:none;font-weight:700}
+.optin{display:flex;gap:8px;align-items:center;font:600 14px var(--body);color:var(--muted)}
 .sect{font:700 12px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:6px 0 -4px}
 </style>
 </head>
@@ -41,7 +47,12 @@
   <div class="wall" id="wall"></div>
   <div class="sect" id="todoHead">Still to make today</div>
   <div class="todo" id="todo"></div>
-  <p class="foot">Pieces land here when you press a make's finish button · everything stays on this device for three days</p>
+  <div class="sect" id="wallHead">Everyone's wall</div>
+  <p class="empty" id="wallNote">Loading what everyone made…</p>
+  <div class="everyone" id="everyone"></div>
+  <div class="tools"><button class="btn ghost" id="wallMore" hidden>Show more</button></div>
+  <label class="optin"><input type="checkbox" id="shareMine"> Also put my finished dailies on everyone's wall (no name attached)</label>
+  <p class="foot">Pieces land here when you press a make's finish button · your gallery stays on this device for three days · everyone's wall is anonymous and keeps every piece</p>
 </div>
 <script src="streak.js"></script>
 <script src="muze.js"></script>
@@ -338,6 +349,33 @@ const Hall = (() => {
   return { show };
 })();
 render();
+
+// Everyone's wall: every piece anyone has finished, anonymously, newest first.
+const wallEl = document.getElementById('everyone'), more = document.getElementById('wallMore'), note = document.getElementById('wallNote');
+const titleOf = Object.fromEntries(Muze.GAMES.map(g => [g.id, g]));
+let lastId = null;
+async function loadWall() {
+  more.disabled = true;
+  const r = await Muze.wall(lastId);
+  more.disabled = false;
+  if (!r) { if (!lastId) note.textContent = "Everyone's wall couldn't load right now."; return; }
+  if (!lastId) note.textContent = r.art.length ? 'Everything anyone has made, newest first. No names, no accounts.' : "Nothing on everyone's wall yet. Finish a daily and yours goes up first.";
+  r.art.forEach(a => {
+    const g = titleOf[a.game] || { title: a.game, page: '#' }, el = document.createElement('figure');
+    el.innerHTML = `<img loading="lazy" alt=""><figcaption><a></a><span></span></figcaption>`;
+    el.querySelector('img').src = a.img; el.querySelector('img').alt = g.title;
+    el.querySelector('a').textContent = g.title; el.querySelector('a').href = g.page;
+    el.querySelector('span').textContent = fmt(a.day);
+    wallEl.append(el);
+  });
+  if (r.art.length) lastId = r.art[r.art.length - 1].id;
+  more.hidden = r.art.length < 24;
+}
+more.onclick = loadWall;
+const optin = document.getElementById('shareMine');
+optin.checked = Muze.sharing.on;
+optin.onchange = () => { Muze.sharing.on = optin.checked; Muze.toast(optin.checked ? "Your next finished pieces go on everyone's wall" : 'Your pieces stay on this device only'); };
+loadWall();
 </script>
 </body>
 </html>
